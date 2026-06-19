@@ -280,7 +280,7 @@ public class LyricPlayerWindow : Window, IDisposable
                 {
                     if (lyricIdx == NO_LYRIC_IDX)
                     {
-                        using (ImRaii.Disabled())
+                        using (ImRaii.Disabled(configuration.DarkenNonCurrentLines))
                             ImGuiHelpers.CenteredText(configuration.MusicLineInsert);
                     }
                     else
@@ -290,7 +290,7 @@ public class LyricPlayerWindow : Window, IDisposable
                 }
                 else
                 {
-                    using (ImRaii.Disabled())
+                    using (ImRaii.Disabled(configuration.DarkenNonCurrentLines))
                         ImGuiHelpers.CenteredText(song.Lyrics[lyricIdx].ToDisplayString());
                 }
             }

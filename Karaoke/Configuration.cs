@@ -20,6 +20,7 @@ public class Configuration : IPluginConfiguration
     public HighlightLyricType HighlightLyrics { get; set; } = HighlightLyricType.ProgressSweep;
     public bool LyricWindowNoTitleBar { get; set; } = true;
     public float? LyricWindowBackgroundOpacity { get; set; } = null;
+    public bool DarkenNonCurrentLines { get; set; } = true;
     public bool DebugMode { get; set; } = false;
 
     /// <summary>
