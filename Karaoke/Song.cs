@@ -61,7 +61,8 @@ public class Song(
         Dictionary<SongTag, object> tags,
         string? lyricFileName,
         string[] lyricFileNames
-    ) {
+    )
+    {
         Tags = tags.ToDictionary();
         var offset = 0f;
         if (Tags.GetValueOrDefault(SongTag.BgmIdOffsets) is (uint Id, float Offset)[] offsets)

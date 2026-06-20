@@ -61,7 +61,6 @@ public sealed class Plugin : IAsyncDalamudPlugin
                     }
                 ));
 
-                //Easier to do using autofac
                 collection.AddSingleton<Window>(provider => provider.GetRequiredService<ConfigWindow>());
                 collection.AddSingleton<Window>(provider => provider.GetRequiredService<DebugWindow>());
                 collection.AddSingleton<Window>(provider => provider.GetRequiredService<LyricPlayerWindow>());

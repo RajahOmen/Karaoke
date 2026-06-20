@@ -1,5 +1,4 @@
 using Dalamud.Bindings.ImGui;
-using Dalamud.Game.ClientState.JobGauge.Enums;
 using Dalamud.Interface;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility;
@@ -23,7 +22,7 @@ public class LyricPlayerWindow : Window, IDisposable
     private readonly IDalamudPluginInterface pluginInterface;
     public bool OpenedManually = false;
 
-    private const int DefaultWidth = 250;
+    private const int DefaultWidth = 300;
     private const int MinBufferWidth = 40;
 
     // We give this window a constant ID using ###
@@ -280,7 +279,7 @@ public class LyricPlayerWindow : Window, IDisposable
                 {
                     if (lyricIdx == NO_LYRIC_IDX)
                     {
-                        using (ImRaii.Disabled(configuration.DarkenNonCurrentLines))
+                        using (ImRaii.Disabled(configuration.EmphasizeCurrentLine))
                             ImGuiHelpers.CenteredText(configuration.MusicLineInsert);
                     }
                     else
@@ -290,7 +289,7 @@ public class LyricPlayerWindow : Window, IDisposable
                 }
                 else
                 {
-                    using (ImRaii.Disabled(configuration.DarkenNonCurrentLines))
+                    using (ImRaii.Disabled(configuration.EmphasizeCurrentLine))
                         ImGuiHelpers.CenteredText(song.Lyrics[lyricIdx].ToDisplayString());
                 }
             }

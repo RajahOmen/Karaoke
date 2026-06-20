@@ -1,7 +1,6 @@
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Lumina.Excel.Sheets;
-using Lumina.Extensions;
 using Microsoft.Extensions.Hosting;
 using System;
 using System.Collections.Generic;

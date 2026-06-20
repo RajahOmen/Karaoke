@@ -18,9 +18,9 @@ public class Configuration : IPluginConfiguration
     public bool ShowSongTime { get; set; } = true;
     public bool ShowLyrics { get; set; } = true;
     public HighlightLyricType HighlightLyrics { get; set; } = HighlightLyricType.ProgressSweep;
-    public bool LyricWindowNoTitleBar { get; set; } = true;
+    public bool LyricWindowNoTitleBar { get; set; } = false;
     public float? LyricWindowBackgroundOpacity { get; set; } = null;
-    public bool DarkenNonCurrentLines { get; set; } = true;
+    public bool EmphasizeCurrentLine { get; set; } = true;
     public bool DebugMode { get; set; } = false;
 
     /// <summary>
@@ -33,8 +33,10 @@ public class Configuration : IPluginConfiguration
     /// Change the rate of time as it appears to song playback. Added
     /// to adjust for the slight discrepency between elapsed time and 
     /// "true" elapsed time, as measured.
+    /// 
+    /// Default set as value that matched personal testing.
     /// </summary>
-    public double TimeRateMultiplier { get; set; } = 0.0f;
+    public double TimeRateMultiplier { get; set; } = 1.0000527777777777;
 
     /// <summary>
     /// Minimum amount of time between lyrics for there to be an indicator placed

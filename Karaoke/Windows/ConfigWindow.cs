@@ -191,12 +191,12 @@ public class ConfigWindow : Window, IDisposable
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Display time-synced lyrics to playing song, if available");
 
-        var darkenNonCurrent = configuration.DarkenNonCurrentLines;
+        var emphasizeCurrent = configuration.EmphasizeCurrentLine;
         using (ImRaii.Disabled(!showLyrics))
         {
-            if (ImGui.Checkbox($"Emphasize current lyric line", ref darkenNonCurrent))
+            if (ImGui.Checkbox($"Emphasize current lyric line", ref emphasizeCurrent))
             {
-                configuration.DarkenNonCurrentLines = darkenNonCurrent;
+                configuration.EmphasizeCurrentLine = emphasizeCurrent;
                 configuration.Save();
             }
         }
