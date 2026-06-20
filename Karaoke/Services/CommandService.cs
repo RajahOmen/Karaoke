@@ -25,7 +25,7 @@ public class CommandService(
     {
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Open the Karaoke plugin window"
+            HelpMessage = "Open the lyric player window\n    - config: open config window\n    - debug: open debug window"
         });
         return Task.CompletedTask;
     }

@@ -418,7 +418,9 @@ public class LyricPlayerWindow : Window, IDisposable
         if (!configuration.ShowSongName && !configuration.ShowSongTime && !configuration.ShowLyrics)
         {
             ImGui.NewLine();
-            ImGuiHelpers.CenteredText("Enable Display Options in Config");
+            ImGuiHelpers.CenteredText("Toggle display options in config");
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip("/karaoke config");
             ImGui.NewLine();
             ImGui.Spacing();
             return;
@@ -455,11 +457,17 @@ public class LyricPlayerWindow : Window, IDisposable
                 }
                 ImGui.Spacing();
             }
+            else if (!configuration.ShowSongName && !configuration.ShowSongTime && configuration.ShowLyrics)
+            {
+                ImGui.NewLine();
+                ImGuiHelpers.CenteredText("No Lyrics Available");
+                ImGui.NewLine();
+                ImGui.Spacing();
+            }
         }
         else if (bgmService.LoadingSong)
         {
             ImGui.NewLine();
-            ImGui.Spacing();
             ImGuiHelpers.CenteredText("Loading Song Data...");
             ImGui.Spacing();
             ImGui.NewLine();
@@ -467,7 +475,6 @@ public class LyricPlayerWindow : Window, IDisposable
         else
         {
             ImGui.NewLine();
-            ImGui.Spacing();
             ImGuiHelpers.CenteredText("No song data");
             ImGui.Spacing();
             ImGui.NewLine();

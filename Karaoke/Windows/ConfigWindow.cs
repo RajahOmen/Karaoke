@@ -26,7 +26,7 @@ public class ConfigWindow : Window, IDisposable
     private static readonly FrozenDictionary<HighlightLyricType, (string Name, string Tooltip)> HighlightLyricNames = new Dictionary<HighlightLyricType, (string Name, string Tooltip)>()
     {
         { HighlightLyricType.None, ("None", "Don't highlight the current word/line") },
-        { HighlightLyricType.ProgressSweep, ("Line Progress", "Color sweep across current line as lyric words play") },
+        { HighlightLyricType.ProgressSweep, ("Line Progress", "Sweep across current line as lyric words play") },
         { HighlightLyricType.Word, ("Current Word", "Highlight current word on the line that is playing") }
     }.ToFrozenDictionary();
 
@@ -114,24 +114,6 @@ public class ConfigWindow : Window, IDisposable
 
         ImGui.Spacing();
         drawOpenConditionCombo();
-        ImGui.Spacing();
-
-        var titleBar = !configuration.LyricWindowNoTitleBar;
-        if (ImGui.Checkbox($"Window Title Bar", ref titleBar))
-        {
-            configuration.LyricWindowNoTitleBar = !titleBar;
-            if (!titleBar)
-            {
-                lyricPlayerWindow.Flags |= ImGuiWindowFlags.NoTitleBar;
-            }
-            else
-            {
-                lyricPlayerWindow.Flags ^= ImGuiWindowFlags.NoTitleBar;
-            }
-            configuration.Save();
-        }
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Whether to have a title bar on the lyric player window");
 
         var setWindowOpacity = configuration.LyricWindowBackgroundOpacity ?? BgAlpha;
         unsafe
@@ -157,6 +139,23 @@ public class ConfigWindow : Window, IDisposable
         }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Changes the background transparency of the lyric player window\nRight click to set to default dalamud window transparency");
+
+        var titleBar = !configuration.LyricWindowNoTitleBar;
+        if (ImGui.Checkbox($"Window Title Bar", ref titleBar))
+        {
+            configuration.LyricWindowNoTitleBar = !titleBar;
+            if (!titleBar)
+            {
+                lyricPlayerWindow.Flags |= ImGuiWindowFlags.NoTitleBar;
+            }
+            else
+            {
+                lyricPlayerWindow.Flags ^= ImGuiWindowFlags.NoTitleBar;
+            }
+            configuration.Save();
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Whether to have a title bar on the lyric player window");
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -192,20 +191,18 @@ public class ConfigWindow : Window, IDisposable
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Display time-synced lyrics to playing song, if available");
 
-        ImGui.Spacing();
         var darkenNonCurrent = configuration.DarkenNonCurrentLines;
         using (ImRaii.Disabled(!showLyrics))
         {
-            if (ImGui.Checkbox($"Darken past/future lines", ref darkenNonCurrent))
+            if (ImGui.Checkbox($"Emphasize current lyric line", ref darkenNonCurrent))
             {
                 configuration.DarkenNonCurrentLines = darkenNonCurrent;
                 configuration.Save();
             }
         }
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-            ImGui.SetTooltip("Whether lines already past or lines yet to occur should be darkened slightly compared to the current line");
+            ImGui.SetTooltip("Whether lyric lines ahead/behind of the current playing line should darkened slightly");
 
-        ImGui.Spacing();
         drawHighlightLyricCombo();
 
         ImGui.Spacing();
@@ -266,7 +263,7 @@ public class ConfigWindow : Window, IDisposable
             ImGui.Spacing();
 
             var insert = configuration.MusicLineInsert;
-            if (ImGui.InputTextWithHint("Music Line Text", "<instrumental>", ref insert))
+            if (ImGui.InputTextWithHint("Music Line Text", "<music>", ref insert))
             {
                 configuration.MusicLineInsert = insert;
                 configuration.Save();
@@ -279,36 +276,7 @@ public class ConfigWindow : Window, IDisposable
         ImGui.Separator();
         ImGui.Spacing();
 
-        ImGui.Text("Misc Settings");
-        ImGui.Spacing();
-
-        var debugMode = configuration.DebugMode;
-        if (ImGui.Checkbox("Debug Mode", ref debugMode))
-        {
-            configuration.DebugMode = debugMode;
-            configuration.Save();
-        }
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Changes lyric highlighting / enables debug functionality");
-
-        using (ImRaii.Disabled(!debugMode))
-        {
-            var timeRateMultiplier = (configuration.TimeRateMultiplier - 1) * (60 * 60);
-            if (ImGui.InputDouble($"Time Rate Mult", ref timeRateMultiplier, format: "%.8f s/hr"))
-            {
-                configuration.TimeRateMultiplier = (timeRateMultiplier / (60 * 60)) + 1;
-                configuration.Save();
-            }
-        }
-        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-        {
-            ImGui.SetTooltip(
-                "ADVANCED: Adjust rate of time for lyric playback to account for sound lag, " +
-                "in units of seconds/hr of playback.\nOnly change this if you've measured " +
-                "a consistent/steady time desync over a long period of playback."
-            );
-        }
-
+        ImGui.Text("Miscellaneous");
         ImGui.Spacing();
 
         using (ImRaii.Disabled(bgmService.ReloadingCurrentSongLyrics))
@@ -320,5 +288,31 @@ public class ConfigWindow : Window, IDisposable
         }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Fetches any updates from remote and updates index of local lyric files");
+
+        var debugMode = configuration.DebugMode;
+        if (ImGui.Checkbox("Debug Mode", ref debugMode))
+        {
+            configuration.DebugMode = debugMode;
+            configuration.Save();
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Changes lyric highlighting / enables debug functionality");
+
+        var timeRateMultiplier = (configuration.TimeRateMultiplier - 1) * (60 * 60);
+        if (ImGui.InputDouble($"Time rate mult.", ref timeRateMultiplier, format: "%.8f s/hr"))
+        {
+            configuration.TimeRateMultiplier = (timeRateMultiplier / (60 * 60)) + 1;
+            configuration.Save();
+        }
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip(
+                "ADVANCED: Adjust rate of time for lyric playback to account for sound lag, " +
+                "in units of seconds/hr of playback.\nOnly change this if you've measured " +
+                "a consistent rate of time desync over a long period of playback."
+            );
+        }
+
+        ImGui.Spacing();
     }
 }

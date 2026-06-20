@@ -16,7 +16,7 @@ public static class Components
 
         var barWidth = ImGui.GetContentRegionAvail().X;
 
-        var barHeight = ImGui.GetTextLineHeight();
+        var barHeight = ImGui.GetTextLineHeightWithSpacing();
 
         var progressWidth = (currentTime / totalTime) * barWidth;
         var loopWidth = (loopTime / totalTime) * barWidth;
@@ -26,14 +26,18 @@ public static class Components
         var halfScaleFactor = (0.5f + 0.5f * ImGuiHelpers.GlobalScale);
         var rounding = 5 * ImGuiHelpers.GlobalScale;
         var curPos = ImGui.GetCursorScreenPos();
-        var lineOpacity = Math.Clamp(opacity + 0.1f, 0.4f, 0.9f);
+        var lineOpacity = Math.Clamp(opacity, 0.3f, 1f);
         opacity = Math.Clamp(opacity, 0.4f, 0.6f);
 
         var grey = ImGui.GetColorU32((style.BuiltInColors?.DalamudGrey3 ?? Vector4.Zero) with { W = opacity });
-        var red = ImGui.GetColorU32((style.BuiltInColors?.DPSRed ?? Vector4.Zero) with { W = opacity });
-        var lightGrey = ImGui.GetColorU32((style.BuiltInColors?.DalamudGrey2 ?? Vector4.Zero) with { W = lineOpacity });
+        var red = ImGui.GetColorU32((style.BuiltInColors?.DalamudRed ?? Vector4.Zero) with { W = opacity * 0.7f });
+        var lightGrey = (style.BuiltInColors?.DalamudGrey3 ?? Vector4.Zero) with { W = lineOpacity };
+        var mult = 0.4f;
+        var loopLineColor = ImGui.GetColorU32(lightGrey * new Vector4(mult, mult, mult, 1f));
+
         drawList.AddRectFilled(curPos, curPos + new Vector2(barWidth, barHeight), grey, rounding: rounding);
-        drawList.AddLine(curPos + new Vector2(loopWidth, 2 * halfScaleFactor), curPos + new Vector2(loopWidth, barHeight - 2 * halfScaleFactor), lightGrey, thickness: 2 * halfScaleFactor);
+        if (loopWidth > rounding / 2f)
+            drawList.AddLine(curPos + new Vector2(loopWidth, halfScaleFactor), curPos + new Vector2(loopWidth, barHeight - halfScaleFactor), loopLineColor, thickness: 2 * halfScaleFactor);
 
         if (progressWidth > 0)
         {
@@ -49,6 +53,7 @@ public static class Components
             }
         }
 
+        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + ImGui.GetStyle().ItemSpacing.Y / 2);
         ImGuiHelpers.CenteredText($"{Util.FormatTime(currentTime, padMins: false)} / {Util.FormatTime(totalTime, padMins: false)}");
         if (ImGui.IsItemHovered())
         {

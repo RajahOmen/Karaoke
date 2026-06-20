@@ -45,7 +45,7 @@ public class BGMService(
     /// </summary>
     public bool CurrentSongUnknownTime = false;
     public SongLoopData? CurrentSongLoopData { get; private set; } = null;
-    public float CurrentElapsedTime = 0.0f;
+    public float CurrentElapsedTime { get; private set; } = 0.0f;
     /// <summary>
     /// The last elapsed time as reported directly from the SoundData struct.
     /// No adjustments for loops or overflow.
@@ -238,7 +238,7 @@ public class BGMService(
             CurrentSongUnknownTime = true;
         }
 
-        return (float)((newRawElapsedTime + ElapsedTimeRawOverflowOffset) * configuration.TimeRateMultiplier);
+        return Math.Max(0f, (float)((newRawElapsedTime + ElapsedTimeRawOverflowOffset) * configuration.TimeRateMultiplier));
     }
 
     private BGM? getBgmRowSoundData(SoundData soundData)
