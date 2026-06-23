@@ -42,6 +42,6 @@ public static partial class Util
         return $"{mins}:{fullSecs:00}.{decSecsStr}";
     }
 
-    [GeneratedRegex(@"(\d{1,2}):(\d{2}\.\d{1,4})$")]
+    [GeneratedRegex(@"(\d{1,2}):(\d{2}\.\d{1,5})$")]
     private static partial Regex TimeFormatRegex();
 }

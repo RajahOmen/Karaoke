@@ -38,9 +38,7 @@ public class Song(
     /// </summary>
     public float LoopStart { get; private set; } = loopStart;
 
-    public int LoopLyricIdx => loopLyricIdx;
-
-    private int loopLyricIdx;
+    public int LoopLyricIdx { get; private set; }
 
     /// <summary>
     /// The lyrics for this particular song. May be null
@@ -99,15 +97,16 @@ public class Song(
         if (Tags.GetValueOrDefault(SongTag.LoopLineIndex) is int loopLineIdx)
         {
             var newLoopStart = Lyrics[loopLineIdx].StartTime;
-            loopLyricIdx = loopLineIdx;
+            LoopLyricIdx = loopLineIdx;
             Duration += newLoopStart - LoopStart;
             LoopStart = newLoopStart;
         }
         else
         {
-            // ADD ONE: want the next lyric to play. Assuming prev lyric has
-            // finished (but next hasn't started)
-            loopLyricIdx = (getLyricIdxAtTime(LoopStart) ?? 0) + 1;
+            var loopLyricIdx = getLyricIdxAtTime(LoopStart) ?? 0;
+            if (Lyrics[loopLyricIdx].StartTime < LoopStart)
+                loopLyricIdx++;
+            LoopLyricIdx = loopLyricIdx;
         }
 
         for (var i = 0; i < Lyrics.Length; i++)
@@ -161,7 +160,7 @@ public class Song(
         if (time < Lyrics[0].StartTime)
             return 0;
 
-        if (time > Lyrics[^1].StartTime + Lyrics[^1].DurationActive)
+        if (time > Lyrics[^1].EndTime)
             return LoopLyricIdx;
 
         var lo = 0;
@@ -171,7 +170,7 @@ public class Song(
         while (lo <= hi)
         {
             var mid = (lo + hi) / 2;
-            if (Lyrics[mid].StartTime + Lyrics[mid].DurationActive > time)
+            if (Lyrics[mid].EndTime > time)
             {
                 result = mid;
                 hi = mid - 1; // keep searching for earlier match
@@ -207,12 +206,12 @@ public class Song(
             return -1;
 
         // wrap back to end of song if configured to do so
-        if (lyricIdx == loopLyricIdx && reverse && wrapToEnd)
+        if (lyricIdx == LoopLyricIdx && reverse && wrapToEnd)
             return Lyrics!.Length - 1;
 
         // wrap to start of loop if at end of lyrics
         if (lyricIdx == Lyrics?.Length - 1 && !reverse)
-            return loopLyricIdx;
+            return LoopLyricIdx;
 
         // else, increment in direction specified
         return reverse ? lyricIdx - 1 : lyricIdx + 1;

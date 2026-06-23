@@ -10,7 +10,7 @@ namespace Karaoke.Windows;
 
 public static class Components
 {
-    public static void DrawPlaybackBar(float currentTime, float totalTime, float loopTime, float opacity)
+    public static void DrawPlaybackBar(float currentTime, float totalTime, float loopTime, float opacity, bool showLoopTime)
     {
         var drawList = ImGui.GetWindowDrawList();
 
@@ -36,7 +36,7 @@ public static class Components
         var loopLineColor = ImGui.GetColorU32(lightGrey * new Vector4(mult, mult, mult, 1f));
 
         drawList.AddRectFilled(curPos, curPos + new Vector2(barWidth, barHeight), grey, rounding: rounding);
-        if (loopWidth > rounding / 2f)
+        if (showLoopTime && loopWidth > rounding / 2f)
             drawList.AddLine(curPos + new Vector2(loopWidth, halfScaleFactor), curPos + new Vector2(loopWidth, barHeight - halfScaleFactor), loopLineColor, thickness: 2 * halfScaleFactor);
 
         if (progressWidth > 0)
@@ -188,7 +188,7 @@ public static class Components
 
         var segment = currentLine.Segments[segIdx];
         var segDuration = segIdx == currentLine.Segments.Length - 1
-            ? currentLine.StartTime + currentLine.DurationActive - segment.StartTime
+            ? currentLine.EndTime - segment.StartTime
             : currentLine.Segments[segIdx + 1].StartTime - segment.StartTime;
         var segmentProgress = Math.Clamp((currentTime - segment.StartTime) / segDuration, 0f, 1f);
 

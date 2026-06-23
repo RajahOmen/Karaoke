@@ -182,6 +182,18 @@ public class ConfigWindow : Window, IDisposable
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Display bar showing current time into playing song");
 
+        using (ImRaii.Disabled(!showSongTime))
+        {
+            var showLoopStart = configuration.ShowLoopStartTime;
+            if (ImGui.Checkbox("Loop Start Time", ref showLoopStart))
+            {
+                configuration.ShowLoopStartTime = showLoopStart;
+                configuration.Save();
+            }
+        }
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetTooltip("Mark the point the song loops on the progress bar");
+
         var showLyrics = configuration.ShowLyrics;
         if (ImGui.Checkbox("Show Lyrics", ref showLyrics))
         {

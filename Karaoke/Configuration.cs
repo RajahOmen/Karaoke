@@ -16,6 +16,7 @@ public class Configuration : IPluginConfiguration
     public OpenWindowOn OpenWindowOn { get; set; } = OpenWindowOn.SongChange;
     public bool ShowSongName { get; set; } = true;
     public bool ShowSongTime { get; set; } = true;
+    public bool ShowLoopStartTime { get; set; } = true;
     public bool ShowLyrics { get; set; } = true;
     public HighlightLyricType HighlightLyrics { get; set; } = HighlightLyricType.ProgressSweep;
     public bool LyricWindowNoTitleBar { get; set; } = false;

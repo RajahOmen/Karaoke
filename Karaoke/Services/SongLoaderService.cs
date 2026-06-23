@@ -246,25 +246,30 @@ public partial class SongLoaderService(
     {
         try
         {
-            var line = await File.ReadLinesAsync(filePath, cancellationToken).FirstAsync(cancellationToken);
-            if (TagRegex().Match(line) is not { Success: true } match)
-                throw new ArgumentException($"No tag found on first line: '{line}'");
+            var lines = File.ReadLinesAsync(filePath, cancellationToken);
+            await foreach (var line in lines)
+            {
+                if (TagRegex().Match(line) is not { Success: true } match)
+                    continue;
 
-            var tag = match.Groups[1].Value;
-            if (!SongTagLabels.TryGetValue(tag, out var tagParseEntry))
-                throw new FormatException($"Unknown tag type: '{tag}'");
+                var tag = match.Groups[1].Value;
+                if (!SongTagLabels.TryGetValue(tag, out var tagParseEntry))
+                    continue;
 
-            if (tagParseEntry.TagType != SongTag.BgmIds)
-                throw new ArgumentException($"First tag not a ids tag: '{tag}'");
+                if (tagParseEntry.TagType != SongTag.BgmIds)
+                    continue;
 
-            if (tagParseEntry.TagParseFunc is null)
-                throw new Exception("Song id tag parse must be a func, is null");
+                if (tagParseEntry.TagParseFunc is null)
+                    throw new Exception("Song id tag parse must be a func, is null");
 
-            var idsStr = match.Groups[2].Value;
-            if (tagParseEntry.TagParseFunc(match.Groups[2].Value) is not uint[] ids)
-                throw new Exception($"Song id parse func returned invalid result. Value: '{idsStr}'");
+                var idsStr = match.Groups[2].Value;
+                if (tagParseEntry.TagParseFunc(match.Groups[2].Value) is not uint[] ids)
+                    throw new Exception($"Song id parse func returned invalid result. Value: '{idsStr}'");
 
-            return ids;
+                return ids;
+            }
+
+            throw new Exception($"Expecting a song ids tag (ex: [ids:1;2;3])");
         }
         catch (Exception ex) when (ex is not TaskCanceledException)
         {

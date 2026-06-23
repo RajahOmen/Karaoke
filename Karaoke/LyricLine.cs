@@ -17,7 +17,7 @@ public partial struct LyricLine
 {
     public readonly float StartTime;
     public readonly string Text;
-    public float DurationActive { get; private set; } = 0.0f;
+    public float EndTime { get; private set; } = 0.0f;
     public float TimeUntilNext { get; private set; } = 0.0f;
     public readonly LyricSegment[] Segments;
 
@@ -35,7 +35,7 @@ public partial struct LyricLine
         ];
 
         if (Segments[^1].StartIdx == Text.Length)
-            DurationActive = Segments[^1].StartTime - StartTime;
+            EndTime = Segments[^1].StartTime;
     }
 
     public LyricLine(
@@ -45,7 +45,7 @@ public partial struct LyricLine
     {
         StartTime = original.StartTime + offset;
         Text = original.Text;
-        DurationActive = original.DurationActive;
+        EndTime = original.EndTime;
         Segments = original
             .Segments
             .Select(s => new LyricSegment(s, offset))
@@ -80,7 +80,7 @@ public partial struct LyricLine
         }
 
         if (Segments[^1].StartIdx == Text.Length)
-            DurationActive = Segments[^1].StartTime - StartTime;
+            EndTime = Segments[^1].StartTime;
     }
 
     private static (string Text, LyricSegment[] Segments) parseText(string text, float lyricStartTime)
@@ -171,19 +171,19 @@ public partial struct LyricLine
     public override string ToString()
     {
         var text = Text;
-        return $"[{Util.FormatTime(StartTime, 4)} -> {Util.FormatTime(StartTime + DurationActive, 4)} ({TimeUntilNext:F2}s)] '{string.Join('|', Segments.Select(s => text[s.StartIdx..s.EndIdx]))}'";
+        return $"[{Util.FormatTime(StartTime, 4)} -> {Util.FormatTime(EndTime, 4)} ({TimeUntilNext:F2}s)] '{string.Join('|', Segments.Select(s => text[s.StartIdx..s.EndIdx]))}'";
     }
 
     public void AddNextLyricTiming(float timeTilNextLyric)
     {
-        if (DurationActive == 0.0f)
-            DurationActive = timeTilNextLyric;
-        TimeUntilNext = Math.Max(timeTilNextLyric - DurationActive, 0f);
+        if (EndTime == 0.0f)
+            EndTime = timeTilNextLyric;
+        TimeUntilNext = Math.Max(timeTilNextLyric - (EndTime - StartTime), 0f);
     }
 
     [GeneratedRegex(@"^\s*\[([^]]*)\]\s*(.*?)\s*$")]
     private static partial Regex LyricLineRegex();
 
-    [GeneratedRegex(@"<(\d+:\d{2}\.\d{2,3})>([^<]*)")]
+    [GeneratedRegex(@"<(\d+:\d{2}\.\d{1,5})>([^<]*)")]
     private static partial Regex SegmentRegex();
 }

@@ -132,7 +132,7 @@ public class BGMService(
                         pluginLog.Warning("Unknown time status reset");
                     }
                     CurrentSongUnknownTime = false;
-                    pluginLog.Debug($"Song updated: {CurrentSong?.Name ?? "Unknown"}");
+                    pluginLog.Debug($"Song updated: {CurrentSong?.Name ?? "Unknown"}, Duration: {song.Duration}, loopStart: {song.LoopStart}");
                 }
                 finally
                 {
