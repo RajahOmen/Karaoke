@@ -1,4 +1,4 @@
-# Karaoke
+# Karaoke FFXIV Plugin
 
 Time-synced lyric playback plugin for songs in FFXIV. When a song with lyrics is played in game, the plugin will show the lyrics to that song, highlighting the current place in the active lyric line.
 
