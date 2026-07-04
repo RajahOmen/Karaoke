@@ -2,7 +2,8 @@
 
 Time-synced lyric playback plugin for songs in FFXIV. When a song with lyrics is played in game, the plugin will show the lyrics to that song, highlighting the current place in the active lyric line.
 
-Lyric files fetched on plugin start from the [karaoke-lyrics](https://github.com/RajahOmen/karaoke-lyrics) github repository. Updates can be manually fetched from the config menu ("Reload Lyric Files"), or with `/karaoke reload`
+Lyric files fetched on plugin start from the [karaoke-lyrics](https://github.com/RajahOmen/karaoke-lyrics) github repository. Updates can be manually fetched from the config menu ("Reload Lyric Files"), or with `/karaoke reload`.
+
 As a backup, also fetches song names from the [Orchestrion](https://github.com/perchbirdd/OrchestrionPlugin) spreadsheet.
 
 ## Usage
