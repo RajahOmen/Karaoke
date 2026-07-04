@@ -11,15 +11,21 @@
   <PropertyGroup>
     <Author>Lily</Author>
     <Name>Karaoke</Name>
-    <Punchline>Wondering what *those* lyrics are? Wonder no longer!</Punchline>
+    <Punchline>If it's not 'big fat tacos', what ARE they singing?</Punchline>
     <Description>Shows the lyrics of what's currently playing, synced to the track time</Description>
     <RepoUrl>https://github.com/RajahOmen/Karaoke</RepoUrl>
-    <Tags>music;lyric;karaoke;song;bgm</Tags>
+    <Tags>music;lyric;karaoke;song;bgm;track</Tags>
     <DalamudApiLevel>15</DalamudApiLevel>
     <CanUnloadAsync>true</CanUnloadAsync>
     <AcceptsFeedback>true</AcceptsFeedback>
     <FeedbackMessage>Please submit lyric/timing changes to https://github.com/RajahOmen/karaoke-lyrics/issues</FeedbackMessage>
-   </PropertyGroup>
+    <IconUrl>https://raw.githubusercontent.com/RajahOmen/Karaoke/main/images/icon.png</IconUrl>
+    <ImageUrls>
+        https://raw.githubusercontent.com/RajahOmen/Karaoke/main/images/karaoke_give_it_all.png;
+        https://raw.githubusercontent.com/RajahOmen/Karaoke/main/images/karaoke_unleashed.png;
+        https://raw.githubusercontent.com/RajahOmen/Karaoke/main/images/karaoke_everything_burns.png
+    </ImageUrls>
+  </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
