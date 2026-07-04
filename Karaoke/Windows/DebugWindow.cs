@@ -183,10 +183,10 @@ public class DebugWindow : Window, IDisposable
                 {
                     actualOffset = -resultTime;
                 }
-                else if (resultTime >= song.LoopStart)
+                else if (song.LoopStart is float loopStart && resultTime >= loopStart)
                 {
-                    actualOffset = offset - (song.LoopStart - curTime);
-                    curTime = song.LoopStart;
+                    actualOffset = offset - (loopStart - curTime);
+                    curTime = loopStart;
                 }
             }
 
@@ -205,7 +205,7 @@ public class DebugWindow : Window, IDisposable
             ImGui.Text(
                 $"{Util.FormatTime(bgmService.CurrentElapsedTime, 2)} " +
                 $"/ {Util.FormatTime(song.Duration, 2)} " +
-                $"(Loops @ {Util.FormatTime(song.LoopStart, 2)})\n" +
+                $"(Loops @ {Util.FormatTime(song.LoopStart ?? -1, 2)})\n" +
                 $"{bgmService.CurrentElapsedTime < song.LoopStart}\n" +
                 $"Offset:       {offset:F1}\n" +
                 $"CurElapTime:  {bgmService.CurrentElapsedTime:F1}\n" +

@@ -9,6 +9,7 @@ namespace Karaoke.Services;
 
 public class CommandService(
     ICommandManager commandManager,
+    BGMService bgmService,
     DebugWindow debugWindow,
     LyricPlayerWindow lyricPlayerWindow,
     ConfigWindow configWindow
@@ -17,15 +18,23 @@ public class CommandService(
     private const string CommandName = "/karaoke";
     private readonly LyricPlayerWindow lyricPlayerWindow = lyricPlayerWindow;
     private readonly ConfigWindow configWindow = configWindow;
+    private readonly BGMService bgmService = bgmService;
     private readonly DebugWindow debugWindow = debugWindow;
 
     public ICommandManager CommandManager { get; } = commandManager;
+
+    private const string HelpMessage = """
+    Open the lyric player window
+        - config: open config window
+        - reload: reload lyrics cache
+        - debug: open debug window
+    """;
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Open the lyric player window\n    - config: open config window\n    - debug: open debug window"
+            HelpMessage = HelpMessage,
         });
         return Task.CompletedTask;
     }
@@ -39,6 +48,10 @@ public class CommandService(
         else if (arguments == "debug")
         {
             debugWindow.Toggle();
+        }
+        else if (arguments == "reload")
+        {
+            bgmService.ReloadCurrentSongLyrics();
         }
         else
         {

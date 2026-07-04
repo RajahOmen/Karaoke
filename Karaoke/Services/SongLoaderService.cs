@@ -51,6 +51,8 @@ public partial class SongLoaderService(
         { "al", (SongTag.Album, null) },
         { "by", (SongTag.LrcAuthor, null) },
         { "length", (SongTag.Duration, s => Util.ParseTime(s)) }, // overrides game-defined, hh:mm.x[xxx] format
+        { "offset", (SongTag.Offset, parseGlobalOffset) },
+        { "#", (SongTag.Comment, null) },
 
         // custom tags
         { "loop", (SongTag.LoopLineIndex, s => int.Parse(s)) },
@@ -100,7 +102,14 @@ public partial class SongLoaderService(
         if (!songLyricFiles.TryGetValue(song.Id, out var lyricsFiles) || lyricsFiles.Count == 0)
         {
             pluginLog.Debug($"No lyric file mapping found for song {song.Id} ('{song.Name}')");
-            song.LoadLyricsAndTags([], [], lyricFileName: null, []);
+            try
+            {
+                song.LoadLyricsAndTags([], [], lyricFileName: null, []);
+            }
+            catch (Exception ex) when (ex is not TaskCanceledException)
+            {
+                pluginLog.Error(ex, "Error loading EMPTY lyrics/tags");
+            }
             return;
         }
 
@@ -113,7 +122,7 @@ public partial class SongLoaderService(
             }
             else
             {
-                // doesn't exist anymore, remove this setting
+                // filename/path doesn't exist anymore, remove this setting
                 configuration.BgmIdLyricFileLoads.Remove(song.Id);
                 configuration.Save();
             }
@@ -139,7 +148,7 @@ public partial class SongLoaderService(
                 if (new FileInfo(lyricsFile).Directory?.Name is string subdirName)
                     songTags[SongTag.LyricCategory] = subdirName;
 
-                pluginLog.Debug($"=== PARSE '{song.Name}' ===");
+                pluginLog.Debug($"=== PARSE '{song.Name}' [{lyricsFile}] ===");
                 pluginLog.Debug($"==== TAGS ====");
                 foreach (var (tagType, tagVal) in songTags)
                     pluginLog.Debug($"{Enum.GetName(tagType)}:'{tagVal}'");
@@ -152,17 +161,25 @@ public partial class SongLoaderService(
                     throw new TaskCanceledException();
                 try
                 {
+                    pluginLog.Verbose($"LoopStart, LoopLyricIdx: {song.LoopStart}, {song.LoopLyricIdx}, {songLyrics.Count}");
                     song.LoadLyricsAndTags([.. songLyrics], songTags, lyricsFile, lyricsFiles.ToArray());
                     pluginLog.Debug("=== SONG INFO ===");
-                    var songLoopLyric = (song.Lyrics?.Length ?? -1) > song.LoopLyricIdx
-                        ? (song.Lyrics?[song.LoopLyricIdx].ToString() ?? "???")
-                        : "No Lyrics Loaded";
-                    pluginLog.Debug($"[{Util.FormatTime(song.LoopStart, 4)} / {song.LoopLyricIdx}] => {songLoopLyric}");
+                    if (song.LoopLyricIdx >= 0)
+                    {
+                        var songLoopLyric = (song.Lyrics?.Length ?? -1) > song.LoopLyricIdx
+                            ? (song.Lyrics?[song.LoopLyricIdx].ToString() ?? "???")
+                            : "No Lyrics Loaded";
+                        pluginLog.Debug($"[{Util.FormatTime(song.LoopStart ?? -1, 4)} / {song.LoopLyricIdx}] => {songLoopLyric}");
+                    }
+                    else
+                    {
+                        pluginLog.Debug($"Song does not have a looped lyric");
+                    }
 
-                    foreach (var lyric in song.Lyrics ?? [])
-                        pluginLog.Debug($"{lyric.ToString()}");
+                    for (var i = 0; i < (song.Lyrics?.Length ?? 0); i++)
+                        pluginLog.Debug($"[{i}] {song.Lyrics![i].ToString()}");
 
-                    pluginLog.Debug($"Song metadata: Duration: {Util.FormatTime(song.Duration, 2)}, LoopStart: {Util.FormatTime(song.LoopStart, 2)}, LoopLyricIdx: {song.LoopLyricIdx}");
+                    pluginLog.Debug($"Song metadata: Duration: {Util.FormatTime(song.Duration, 2)}, LoopStart: {Util.FormatTime(song.LoopStart ?? -1, 2)}, LoopLyricIdx: {song.LoopLyricIdx}");
 
                     OnLyricLoad?.Invoke();
                 }
@@ -381,11 +398,19 @@ public partial class SongLoaderService(
         return ids;
     }
 
+    private static object parseGlobalOffset(string offsetStr)
+    {
+        var direction = offsetStr.StartsWith('-')
+            ? 1 : -1;
+        var seconds = float.Parse(offsetStr.TrimStart('+', '-'));
+        return seconds * direction;
+    }
+
     [GeneratedRegex(@"([0-9]*):([^;\]]*)")]
     private static partial Regex BgmIdOffsetRegex();
 
 
-    [GeneratedRegex(@"^\[([a-z,A-Z]*):([^]]*)\]")]
+    [GeneratedRegex(@"^\[([a-z,A-Z,#]*):([^]]*)\]")]
     private static partial Regex TagRegex();
 
     public async Task StartAsync(CancellationToken cancellationToken)

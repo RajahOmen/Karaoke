@@ -10,8 +10,10 @@ namespace Karaoke.Windows;
 
 public static class Components
 {
-    public static void DrawPlaybackBar(float currentTime, float totalTime, float loopTime, float opacity, bool showLoopTime)
+    public static void DrawPlaybackBar(float currentTime, float totalTime, float? loopTime, float opacity, bool showLoopTime)
     {
+        showLoopTime = showLoopTime && loopTime is not null;
+
         var drawList = ImGui.GetWindowDrawList();
 
         var barWidth = ImGui.GetContentRegionAvail().X;
@@ -19,7 +21,7 @@ public static class Components
         var barHeight = ImGui.GetTextLineHeightWithSpacing();
 
         var progressWidth = (currentTime / totalTime) * barWidth;
-        var loopWidth = (loopTime / totalTime) * barWidth;
+        var loopWidth = ((loopTime ?? 0)/ totalTime) * barWidth;
 
         var style = StyleModelV1.GetFromCurrent();
 
@@ -41,15 +43,21 @@ public static class Components
 
         if (progressWidth > 0)
         {
-            if (progressWidth <= rounding)
+            if (progressWidth <= rounding * 2)
             {
-                drawList.PushClipRect(curPos, curPos + new Vector2(progressWidth, barHeight));
+                drawList.PushClipRect(curPos, curPos + new Vector2(Math.Min(progressWidth, rounding), barHeight));
                 drawList.AddRectFilled(curPos, curPos + new Vector2(rounding, barHeight), red, rounding: rounding, ImDrawFlags.RoundCornersLeft);
                 drawList.PopClipRect();
+                if (progressWidth > rounding)
+                {
+                    drawList.PushClipRect(curPos + new Vector2(rounding, 0), curPos + new Vector2(progressWidth + 10, barHeight));
+                    drawList.AddRectFilled(curPos, curPos + new Vector2(progressWidth, barHeight), red, rounding: progressWidth - rounding, ImDrawFlags.RoundCornersRight);
+                    drawList.PopClipRect();
+                }
             }
             else
             {
-                drawList.AddRectFilled(curPos, curPos + new Vector2(progressWidth, barHeight), red, rounding: rounding, ImDrawFlags.RoundCornersLeft);
+                drawList.AddRectFilled(curPos, curPos + new Vector2(progressWidth, barHeight), red, rounding: rounding);
             }
         }
 
@@ -57,7 +65,10 @@ public static class Components
         ImGuiHelpers.CenteredText($"{Util.FormatTime(currentTime, padMins: false)} / {Util.FormatTime(totalTime, padMins: false)}");
         if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip($"Loop Start: {Util.FormatTime(loopTime, padMins: false)}");
+            if (loopTime is float actualLoopTime)
+                ImGui.SetTooltip($"Loop Start: {Util.FormatTime(actualLoopTime, padMins: false)}");
+            else
+                ImGui.SetTooltip($"Loop Start: None");
         }
     }
 

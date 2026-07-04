@@ -19,6 +19,7 @@ public partial struct LyricLine
     public readonly string Text;
     public float EndTime { get; private set; } = 0.0f;
     public float TimeUntilNext { get; private set; } = 0.0f;
+    public int? OverlappingLineIdx { get; set; } = null;
     public readonly LyricSegment[] Segments;
 
     public LyricLine(
@@ -45,7 +46,7 @@ public partial struct LyricLine
     {
         StartTime = original.StartTime + offset;
         Text = original.Text;
-        EndTime = original.EndTime;
+        EndTime = original.EndTime + offset;
         Segments = original
             .Segments
             .Select(s => new LyricSegment(s, offset))
@@ -104,8 +105,11 @@ public partial struct LyricLine
             segments = new LyricSegment[matches.Count + 1];
 
             var segText = resultText[0..charIdxOffset].Trim();
+            var isSyllable = segText.EndsWith('-');
+            if (isSyllable)
+                segText = segText[0..^1];
 
-            if (matches.Count > 1)
+            if (matches.Count > 1 && !isSyllable)
                 segText += ' ';
 
             charIdxOffset = segText.Length;
@@ -130,10 +134,13 @@ public partial struct LyricLine
             var timeStr = match.Groups[1].Value;
 
             var lyricText = match.Groups[2].Value.Trim();
+            var isSyllable = lyricText.EndsWith('-');
+            if (isSyllable)
+                lyricText = lyricText[0..^1];
 
             nonTagText.Append(lyricText);
             var segmentLength = lyricText.Length;
-            if (matchIdx < lastTextIdx && lyricText != string.Empty)
+            if (matchIdx < lastTextIdx && lyricText != string.Empty && !isSyllable)
             {
                 nonTagText.Append(' ');
                 segmentLength += 1;
@@ -171,7 +178,7 @@ public partial struct LyricLine
     public override string ToString()
     {
         var text = Text;
-        return $"[{Util.FormatTime(StartTime, 4)} -> {Util.FormatTime(EndTime, 4)} ({TimeUntilNext:F2}s)] '{string.Join('|', Segments.Select(s => text[s.StartIdx..s.EndIdx]))}'";
+        return $"[{Util.FormatTime(StartTime, 4)} -> {Util.FormatTime(EndTime, 4)} ({TimeUntilNext:F2}s) [{(OverlappingLineIdx?.ToString() ?? " ")}]] '{string.Join('|', Segments.Select(s => $"<{Util.FormatTime(s.StartTime, 2)}>{text[s.StartIdx..s.EndIdx]}"))}'";
     }
 
     public void AddNextLyricTiming(float timeTilNextLyric)

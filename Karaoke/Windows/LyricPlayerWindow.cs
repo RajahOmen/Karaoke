@@ -138,10 +138,14 @@ public class LyricPlayerWindow : Window, IDisposable
 
     private void drawLyrics(Song song, float lyricTime)
     {
-
         var curLyricIdx = song.GetLyricIdxAtTime(lyricTime);
         if (curLyricIdx < 0 || song.Lyrics is null)
             return;
+
+        var lyricCount = song.Lyrics.Length;
+        var noMoreLyrics = curLyricIdx == lyricCount;
+
+        LyricLine? curLyric = !noMoreLyrics ? song.Lyrics[curLyricIdx] : null;
 
         var ahead = configuration.NumLyricsAhead;
         var behind = configuration.NumLyricsBehind;
@@ -152,25 +156,23 @@ public class LyricPlayerWindow : Window, IDisposable
         var aheadIdxStart = (int)behind + 1;
         var behindIdxStart = (int)behind - 1;
 
-        var curLyric = song.Lyrics[curLyricIdx];
         var alreadyLooped = bgmService.TotalElapsedTime - configuration.GlobalLyricDelay >= song.Lyrics[^1].StartTime;
         var prevLyricIdx = song.GetNextLyricIdx(
             curLyricIdx, reverse: true, wrapToEnd: alreadyLooped
         );
         float emptyTime;
         if (prevLyricIdx < 0)
-            emptyTime = curLyric.StartTime;
+            emptyTime = curLyric?.StartTime ?? 0;
         else
             emptyTime = song.Lyrics[prevLyricIdx].TimeUntilNext;
 
-        if (lyricTime > curLyric.EndTime)
-            lyricTime = song.LoopStart - (song.Duration - lyricTime);
-
+        if (!noMoreLyrics && song.LoopStart is float loopStart && lyricTime > song.Lyrics[curLyricIdx].EndTime)
+            lyricTime = loopStart - (song.Duration - lyricTime);
 
         if (emptyTime > thresh)
         {
             // currently in inactive time
-            if (lyricTime < curLyric.StartTime)
+            if (lyricTime < (curLyric?.StartTime ?? 0))
             {
                 lyricIdxs[behind] = MUSIC_LINE_IDX;
                 if (ahead > 0)
@@ -190,7 +192,7 @@ public class LyricPlayerWindow : Window, IDisposable
             }
         }
 
-        if (curLyric.TimeUntilNext > thresh && ahead > 0)
+        if ((curLyric?.TimeUntilNext ?? 0) > thresh && ahead > 0)
         {
             lyricIdxs[aheadIdxStart] = MUSIC_LINE_IDX;
             aheadIdxStart++;
@@ -204,9 +206,9 @@ public class LyricPlayerWindow : Window, IDisposable
             var newIdx = song.GetNextLyricIdx(lastCheckedIdx, reverse: true, wrapToEnd: alreadyLooped);
             lyricIdxs[i] = newIdx;
 
-            if (lyricIdxs[i + 1] > 0)
+            if (lyricIdxs[i + 1] >= 0)
             {
-                if (newIdx > 0)
+                if (newIdx >= 0)
                 {
                     if (song.Lyrics[newIdx].TimeUntilNext > thresh)
                     {
@@ -227,10 +229,10 @@ public class LyricPlayerWindow : Window, IDisposable
         }
 
         lastCheckedIdx = curLyricIdx;
+
         for (var j = aheadIdxStart; j < lyricIdxs.Length; j++)
         {
             var newIdx = song.GetNextLyricIdx(lastCheckedIdx, reverse: false);
-
             lyricIdxs[j] = newIdx;
             lastCheckedIdx = newIdx;
             if (newIdx > 0 && song.Lyrics[newIdx].TimeUntilNext > thresh && j < lyricIdxs.Length - 1)
@@ -240,13 +242,13 @@ public class LyricPlayerWindow : Window, IDisposable
             }
         }
 
+
         for (var i = 0; i < lyricIdxs.Length; i++)
         {
             var lyricIdx = lyricIdxs[i];
 
             if (i == behind)
             {
-
                 if (lyricIdx == MUSIC_LINE_IDX)
                 {
                     LyricLine? prevLyricVal = prevLyricIdx >= 0
@@ -258,33 +260,40 @@ public class LyricPlayerWindow : Window, IDisposable
                     {
                         startTime = 0;
                     }
-                    else if (curLyric.StartTime >= prevLyric.StartTime)
+                    else if ((curLyric?.StartTime ?? 0) >= prevLyric.StartTime)
                     {
                         startTime = prevLyric.EndTime;
                     }
                     else
                     {
-                        startTime = curLyric.StartTime - prevLyric.TimeUntilNext;
+                        startTime = (curLyric?.StartTime ?? 0) - prevLyric.TimeUntilNext;
                     }
 
                     Components.DrawCurrentText(
                         configuration.MusicLineInsert,
                         lyricTime,
                         startTime,
-                        endTime: curLyric.StartTime,
+                        endTime: curLyric?.StartTime ?? 0,
                         configuration.DebugMode,
                         configuration.HighlightLyrics
                         );
                     continue;
                 }
 
-                Components.DrawCurrentLyric(
-                    lyricTime,
-                    curLyric,
-                    pluginLog,
-                    configuration.DebugMode,
-                    configuration.HighlightLyrics
-                );
+                if (curLyric is LyricLine lyric)
+                {
+                    Components.DrawCurrentLyric(
+                        lyricTime,
+                        lyric,
+                        pluginLog,
+                        configuration.DebugMode,
+                        configuration.HighlightLyrics
+                    );
+                }
+                else
+                {
+                    ImGui.NewLine();
+                }
             }
             else
             {
@@ -302,8 +311,32 @@ public class LyricPlayerWindow : Window, IDisposable
                 }
                 else
                 {
-                    using (ImRaii.Disabled(configuration.EmphasizeCurrentLine))
-                        ImGuiHelpers.CenteredText(song.Lyrics[lyricIdx].ToDisplayString());
+                    var lyric = song.Lyrics[lyricIdx];
+                    var isActive = false;
+                    if (lyric.OverlappingLineIdx is int lineIdx && lineIdx >= 0)
+                    {
+                        if (
+                            (
+                                lyricIdxs[behind] == lineIdx ||
+                                (lyricIdxs[behind] != lineIdx && song.Lyrics[lineIdx].StartTime <= lyricTime)
+                            ) && lyricTime <= lyric.EndTime
+                        )
+                            isActive = lyric.StartTime - lyricTime < 0.7;
+                    }
+                    if (isActive)
+                    {
+                        Components.DrawCurrentLyric(
+                            lyricTime,
+                            lyric,
+                            pluginLog,
+                            configuration.DebugMode,
+                            configuration.HighlightLyrics
+                        );
+                    }
+                    else {
+                        using (ImRaii.Disabled(configuration.EmphasizeCurrentLine))
+                            ImGuiHelpers.CenteredText(lyric.ToDisplayString());
+                    }
                 }
             }
         }
@@ -352,7 +385,7 @@ public class LyricPlayerWindow : Window, IDisposable
             ImGui.Spacing();
 
             var cursorPos = ImGui.GetCursorPos();
-            var hovered = ImGui.IsWindowHovered(ImGuiHoveredFlags.RectOnly | ImGuiHoveredFlags.RootAndChildWindows);
+            var hovered = ImGui.IsWindowHovered(ImGuiHoveredFlags.AllowWhenBlockedByPopup | ImGuiHoveredFlags.AllowWhenBlockedByActiveItem);
 
             if (configuration.ShowSongName)
             {
@@ -374,6 +407,8 @@ public class LyricPlayerWindow : Window, IDisposable
                         ImGui.Text($"Length: {Util.FormatTime(song.Duration, decPlaces: 0, padMins: false)}");
                         if (song.Tags.GetValueOrDefault(SongTag.LrcAuthor) is string lrcAuthor)
                             ImGui.Text($"Sync By: {lrcAuthor}");
+                        if (song.Tags.GetValueOrDefault(SongTag.Comment) is string comment)
+                            ImGui.Text($"Note: {comment}");
                     }
                 }
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -7,7 +8,7 @@ public class Song(
     uint id,
     string? name,
     float duration,
-    float loopStart,
+    float? loopStart,
     LyricLine[]? lyrics = null
     )
 {
@@ -35,9 +36,14 @@ public class Song(
 
     /// <summary>
     /// When in the song does it loop back to when it reaches the end.
+    /// Null if the song does not loop
     /// </summary>
-    public float LoopStart { get; private set; } = loopStart;
+    public float? LoopStart { get; private set; } = loopStart;
 
+    /// <summary>
+    /// What lyric index the song loops onto when it reaches the end.
+    /// Equal to -1 if the song does not loop
+    /// </summary>
     public int LoopLyricIdx { get; private set; }
 
     /// <summary>
@@ -61,15 +67,19 @@ public class Song(
         string[] lyricFileNames
     )
     {
+        LoadingLyrics = true;
         Tags = tags.ToDictionary();
         var offset = 0f;
+        if (Tags.GetValueOrDefault(SongTag.Offset) is float globalOffset)
+            offset = globalOffset;
+
         if (Tags.GetValueOrDefault(SongTag.BgmIdOffsets) is (uint Id, float Offset)[] offsets)
         {
             foreach (var (id, idOffset) in offsets)
             {
                 if (id == Id)
                 {
-                    offset = idOffset;
+                    offset += idOffset;
                     break;
                 }
             }
@@ -86,7 +96,7 @@ public class Song(
         }
 
 
-        Lyrics = [.. lyrics];
+        Lyrics = [.. lyrics.OrderBy(l => l.StartTime)];
         LoadedFileName = lyricFileName;
         AvailableFileNames = lyricFileNames;
 
@@ -96,28 +106,68 @@ public class Song(
             Name = name;
         if (Tags.GetValueOrDefault(SongTag.LoopLineIndex) is int loopLineIdx)
         {
+            if (LoopStart is not float curLoopStart)
+                throw new Exception("Cannot specify a loop line idx for a song that does not loop");
             var newLoopStart = Lyrics[loopLineIdx].StartTime;
             LoopLyricIdx = loopLineIdx;
-            Duration += newLoopStart - LoopStart;
+            Duration += newLoopStart - curLoopStart;
             LoopStart = newLoopStart;
+        }
+        else if (LoopStart is not float curLoopStart)
+        {
+            LoopLyricIdx = -1;
+        }
+        else if (Lyrics.Length > 0)
+        {
+            var loopLyricIdx = getLyricIdxAtTime(curLoopStart) ?? 0;
+            if (Lyrics[loopLyricIdx].EndTime < LoopStart && loopLyricIdx == LoopLyricIdx)
+            {
+                // no lyrics after loop point
+                LoopLyricIdx = -1;
+            }
+            else if (Lyrics[loopLyricIdx].StartTime < LoopStart)
+            {
+                LoopLyricIdx = loopLyricIdx + 1;
+            }
+            else
+            {
+                LoopLyricIdx = loopLyricIdx;
+            }
         }
         else
         {
-            var loopLyricIdx = getLyricIdxAtTime(LoopStart) ?? 0;
-            if (Lyrics[loopLyricIdx].StartTime < LoopStart)
-                loopLyricIdx++;
-            LoopLyricIdx = loopLyricIdx;
+            LoopLyricIdx = 0;
         }
 
         for (var i = 0; i < Lyrics.Length; i++)
         {
             var lyric = Lyrics[i];
-            var nextLyric = Lyrics[GetNextLyricIdx(i)];
 
-            var timeBetweenLyrics = lyric.StartTime <= nextLyric.StartTime
-                ? nextLyric.StartTime - lyric.StartTime
-                : (Duration - lyric.StartTime) + (nextLyric.StartTime - LoopStart);
-            Lyrics[i].AddNextLyricTiming(timeBetweenLyrics);
+            var nextLyricIdx = GetNextLyricIdx(i);
+            if (nextLyricIdx > 0)
+            {
+                var nextLyric = Lyrics[nextLyricIdx];
+
+                var timeBetweenLyrics = nextLyric.StartTime - lyric.StartTime;
+
+                if (lyric.StartTime > nextLyric.StartTime && LoopStart is float actualLoopStart)
+                    timeBetweenLyrics = (Duration - lyric.StartTime) + (nextLyric.StartTime - actualLoopStart);
+
+                Lyrics[i].AddNextLyricTiming(timeBetweenLyrics);
+            }
+        }
+
+        for (var i = 1; i < Lyrics.Length; i++)
+        {
+            for (var j = 0; j < i; j++)
+            {
+                if (Lyrics[j].EndTime > Lyrics[i].StartTime)
+                {
+                    Lyrics[j].OverlappingLineIdx ??= j;
+                    Lyrics[i].OverlappingLineIdx = j;
+                    break;
+                }
+            }
         }
 
         LoadingLyrics = false;
@@ -128,24 +178,28 @@ public class Song(
         float overflowOffset = 0
     )
     {
+        // for songs that don't loop
+        if (LoopStart is not float loopStart)
+            return rawElapsedTime + overflowOffset;
+
         float loopElapsedTime;
 
         if (overflowOffset < 0)
         {
             var timeSinceBoundary = rawElapsedTime;
-            if (timeSinceBoundary >= LoopStart)
-                timeSinceBoundary -= LoopStart;
+            if (timeSinceBoundary >= loopStart)
+                timeSinceBoundary -= loopStart;
 
             var overflowPastBoundary = timeSinceBoundary + overflowOffset;
             loopElapsedTime = overflowPastBoundary <= 0
-                ? Duration + (overflowPastBoundary % (Duration - LoopStart))
+                ? Duration + (overflowPastBoundary % (Duration - loopStart))
                 : (rawElapsedTime + overflowOffset);
         }
         else
         {
             var offsetElapsedTime = rawElapsedTime + overflowOffset;
             loopElapsedTime = offsetElapsedTime >= Duration
-                ? ((offsetElapsedTime - LoopStart) % (Duration - LoopStart)) + LoopStart
+                ? ((offsetElapsedTime - loopStart) % (Duration - loopStart)) + loopStart
                 : offsetElapsedTime;
         }
 
@@ -161,7 +215,7 @@ public class Song(
             return 0;
 
         if (time > Lyrics[^1].EndTime)
-            return LoopLyricIdx;
+            return LoopLyricIdx >= 0 ? LoopLyricIdx : Lyrics.Length;
 
         var lo = 0;
         var hi = Lyrics.Length - 1;
@@ -202,8 +256,11 @@ public class Song(
     )
     {
         // check lyric idx is valid
-        if (lyricIdx < 0 || lyricIdx >= (Lyrics?.Length ?? lyricIdx))
+        if (lyricIdx < 0 || lyricIdx > (Lyrics?.Length ?? lyricIdx))
             return -1;
+
+        if (Lyrics?.Length is int lyricLen && lyricIdx == lyricLen)
+            return reverse ? lyricLen - 1 : -1;
 
         // wrap back to end of song if configured to do so
         if (lyricIdx == LoopLyricIdx && reverse && wrapToEnd)

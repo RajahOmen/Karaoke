@@ -139,6 +139,10 @@ public class BGMService(
                     LoadingSongId = null;
                 }
             }
+            else
+            {
+                pluginLog.Debug($"BGM stopped");
+            }
             OnSongChange?.Invoke();
         }
 
@@ -194,7 +198,7 @@ public class BGMService(
         var lastIntervalLength = intervals.Last();
 
         var totalLength = sound.SoundExtraDesc?.PlayTimeLength ?? (uint)intervals.Sum(i => i);
-        var loopStart = 0u;
+        uint? loopStart = null;
         if (sound.SoundBasicDesc.Attribute.HasFlag(SoundAttribute.Loop) && intervals.Count > 1)
             loopStart = intervals[^2];
 
