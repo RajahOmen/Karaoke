@@ -144,7 +144,7 @@ public class Song(
             var lyric = Lyrics[i];
 
             var nextLyricIdx = GetNextLyricIdx(i);
-            if (nextLyricIdx > 0)
+            if (nextLyricIdx >= 0)
             {
                 var nextLyric = Lyrics[nextLyricIdx];
 
