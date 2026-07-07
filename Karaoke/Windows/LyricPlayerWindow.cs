@@ -205,7 +205,6 @@ public class LyricPlayerWindow : Window, IDisposable
         {
             var newIdx = song.GetNextLyricIdx(lastCheckedIdx, reverse: true, wrapToEnd: alreadyLooped);
             lyricIdxs[i] = newIdx;
-
             if (lyricIdxs[i + 1] >= 0)
             {
                 if (newIdx >= 0)
@@ -219,10 +218,9 @@ public class LyricPlayerWindow : Window, IDisposable
                             i--;
                         }
                     }
-                } else if (i > 0 && song.Lyrics[lastCheckedIdx].StartTime > thresh)
+                } else if (song.Lyrics[lastCheckedIdx].StartTime > thresh)
                 {
-                    lyricIdxs[i - 1] = MUSIC_LINE_IDX;
-                    i--;
+                    lyricIdxs[i] = MUSIC_LINE_IDX;
                 }
             }
             lastCheckedIdx = newIdx;
