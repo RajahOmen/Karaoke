@@ -173,6 +173,13 @@ public class BGMService(
 
     public void ReloadCurrentSongLyrics()
     {
+        if (CurrentSong is not null && CurrentSongLoopData is SongLoopData currentLoopData)
+        {
+            CurrentSong = songLoaderService.GetSongById(
+                CurrentSong.Id,
+                currentLoopData
+            );
+        }
         songLoaderService.ReloadLyrics(CurrentSong);
     }
 
