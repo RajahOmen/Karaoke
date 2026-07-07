@@ -399,7 +399,7 @@ public class LyricPlayerWindow : Window, IDisposable
                         if (song.Tags.GetValueOrDefault(SongTag.Album) is string album)
                             ImGui.Text($"Album: {album}");
                         if (song.Tags.GetValueOrDefault(SongTag.Artist) is string artist)
-                            ImGui.Text($"Performer: {artist}");
+                            ImGui.Text($"Performer(s): {artist}");
                         if (song.Tags.GetValueOrDefault(SongTag.Lyricist) is string lyricist)
                             ImGui.Text($"Lyricist(s): {lyricist}");
                         ImGui.Text($"Length: {Util.FormatTime(song.Duration, decPlaces: 0, padMins: false)}");
