@@ -251,7 +251,7 @@ public class LyricPlayerWindow : Window, IDisposable
             var newIdx = song.GetNextLyricIdx(lastCheckedIdx, reverse: false);
             lyricIdxs[j] = newIdx;
             lastCheckedIdx = newIdx;
-            if (newIdx > 0 && song.Lyrics[newIdx].TimeUntilNext > thresh && j < lyricIdxs.Length - 1)
+            if (newIdx >= 0 && song.Lyrics[newIdx].TimeUntilNext > thresh && j < lyricIdxs.Length - 1)
             {
                 lyricIdxs[j + 1] = MUSIC_LINE_IDX;
                 j++;
