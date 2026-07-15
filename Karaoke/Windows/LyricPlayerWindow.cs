@@ -142,8 +142,7 @@ public class LyricPlayerWindow : Window, IDisposable
         if (curLyricIdx < 0 || song.Lyrics is null)
             return;
 
-        var lyricCount = song.Lyrics.Length;
-        var noMoreLyrics = curLyricIdx == lyricCount;
+        var noMoreLyrics = curLyricIdx == song.Lyrics.Length;
 
         LyricLine? curLyric = !noMoreLyrics ? song.Lyrics[curLyricIdx] : null;
 
@@ -156,9 +155,22 @@ public class LyricPlayerWindow : Window, IDisposable
         var aheadIdxStart = (int)behind + 1;
         var behindIdxStart = (int)behind - 1;
 
-        var alreadyLooped = bgmService.TotalElapsedTime - configuration.GlobalLyricDelay >= song.Lyrics[^1].StartTime;
+        var timeUntilCurLyric = 0f;
+        if (curLyric is LyricLine curLyricLine)
+        {
+            if (lyricTime > curLyricLine.EndTime)
+            {
+                timeUntilCurLyric = (song.Duration - lyricTime) + (curLyricLine.StartTime - (song.LoopStart ?? 0));
+            }
+            else
+            {
+                timeUntilCurLyric = curLyricLine.StartTime - lyricTime;
+            }
+        }
+        var remainingTime = bgmService.TotalElapsedTime - configuration.GlobalLyricDelay + timeUntilCurLyric;
+
         var prevLyricIdx = song.GetNextLyricIdx(
-            curLyricIdx, reverse: true, wrapToEnd: alreadyLooped
+            curLyricIdx, reverse: true, wrapTimeAllowance: remainingTime
         );
         float emptyTime;
         if (prevLyricIdx < 0)
@@ -203,7 +215,13 @@ public class LyricPlayerWindow : Window, IDisposable
 
         for (var i = behindIdxStart; i >= 0; i--)
         {
-            var newIdx = song.GetNextLyricIdx(lastCheckedIdx, reverse: true, wrapToEnd: alreadyLooped);
+            var newIdx = song.GetNextLyricIdx(lastCheckedIdx, reverse: true, wrapTimeAllowance: remainingTime);
+            if (!noMoreLyrics && remainingTime >= 0 && newIdx >= 0)
+            {
+                var prevLyric = song.Lyrics[newIdx];
+                remainingTime -= prevLyric.TimeUntilNext + prevLyric.EndTime - prevLyric.StartTime;
+            }
+
             lyricIdxs[i] = newIdx;
             if (lyricIdxs[i + 1] >= 0)
             {

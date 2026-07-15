@@ -81,7 +81,6 @@ public class Song(
             }
         }
 
-
         Lyrics = [.. lyrics.Where(l => l.StartTime >= 0 && Math.Max(l.StartTime, l.EndTime) < Duration).OrderBy(l => l.StartTime)];
         LoadedFileName = lyricFileName;
         AvailableFileNames = lyricFileNames;
@@ -250,7 +249,7 @@ public class Song(
     public int GetNextLyricIdx(
         int lyricIdx,
         bool reverse = false,
-        bool wrapToEnd = false
+        float wrapTimeAllowance = 0
     )
     {
         // check lyric idx is valid
@@ -261,8 +260,14 @@ public class Song(
             return reverse ? lyricLen - 1 : -1;
 
         // wrap back to end of song if configured to do so
-        if (lyricIdx == LoopLyricIdx && reverse && wrapToEnd)
-            return Lyrics!.Length - 1;
+        if (lyricIdx == LoopLyricIdx && reverse)
+        {
+            var lyric = Lyrics![^1];
+            if (lyric.EndTime - lyric.StartTime + lyric.TimeUntilNext <= wrapTimeAllowance)
+                return Lyrics!.Length - 1;
+
+            return -1;
+        }
 
         // wrap to start of loop if at end of lyrics
         if (lyricIdx == Lyrics?.Length - 1 && !reverse)
