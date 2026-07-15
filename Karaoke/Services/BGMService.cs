@@ -177,7 +177,8 @@ public class BGMService(
         {
             CurrentSong = songLoaderService.GetSongById(
                 CurrentSong.Id,
-                currentLoopData
+                currentLoopData,
+                loadLyrics: false
             );
         }
         songLoaderService.ReloadLyrics(CurrentSong);
@@ -203,16 +204,19 @@ public class BGMService(
             .ToList();
 
         var lastIntervalLength = intervals.Last();
+        var preIntervalLength = intervals.Count > 2
+            ? (uint)intervals[0..^2].Sum(i => i)
+            : 0;
 
         var totalLength = sound.SoundExtraDesc?.PlayTimeLength ?? (uint)intervals.Sum(i => i);
         uint? loopStart = null;
-        if (sound.SoundBasicDesc.Attribute.HasFlag(SoundAttribute.Loop) && intervals.Count > 1)
-            loopStart = intervals[^2];
+        if (sound.SoundBasicDesc.Attribute.HasFlag(SoundAttribute.Loop))
+            loopStart = intervals.Count > 1 ? intervals[^2] + preIntervalLength : 0;
 
         return new SongLoopData(
             totalDurationMillis: totalLength,
             loopStartMillis: loopStart,
-            loopDurationMillis: lastIntervalLength
+            loopDurationMillis: (totalLength - loopStart) ?? 0
         );
     }
 
@@ -445,15 +449,16 @@ public class BGMService(
             }
         }
         pluginLog.Debug($"-----AUDIO[{soundNumber}]-----");
-        var maybeAudio = scdFile.GetAudio(soundNumber);
-        if (maybeAudio is not ScdFile.Audio audio)
-        {
-            pluginLog.Debug($"audio data is null for sound number: {soundNumber}");
-        }
-        else
-        {
-            pluginLog.Debug($"AudioBasicDesc:{dumpStruct<AudioBasicDesc>(audio.AudioBasicDesc)}");
-        }
+        // broken for now
+        //var maybeAudio = scdFile.GetAudio(soundNumber);
+        //if (maybeAudio is not ScdFile.Audio audio)
+        //{
+        //    pluginLog.Debug($"audio data is null for sound number: {soundNumber}");
+        //}
+        //else
+        //{
+        //    pluginLog.Debug($"AudioBasicDesc:{dumpStruct<AudioBasicDesc>(audio.AudioBasicDesc)}");
+        //}
         pluginLog.Debug($"==============================================================");
     }
 }

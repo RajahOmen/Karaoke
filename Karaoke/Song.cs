@@ -73,22 +73,8 @@ public class Song(
         if (Tags.GetValueOrDefault(SongTag.Offset) is float globalOffset)
             offset = globalOffset;
 
-        if (Tags.GetValueOrDefault(SongTag.BgmIdOffsets) is (uint Id, float Offset)[] offsets)
+        if (offset != 0)
         {
-            foreach (var (id, idOffset) in offsets)
-            {
-                if (id == Id)
-                {
-                    offset += idOffset;
-                    break;
-                }
-            }
-        }
-
-        if (offset > 0)
-        {
-            Duration += offset;
-            LoopStart += offset;
             for (var i = 0; i < lyrics.Length; i++)
             {
                 lyrics[i] = new LyricLine(lyrics[i], offset);
@@ -96,7 +82,7 @@ public class Song(
         }
 
 
-        Lyrics = [.. lyrics.OrderBy(l => l.StartTime)];
+        Lyrics = [.. lyrics.Where(l => l.StartTime >= 0 && Math.Max(l.StartTime, l.EndTime) < Duration).OrderBy(l => l.StartTime)];
         LoadedFileName = lyricFileName;
         AvailableFileNames = lyricFileNames;
 
@@ -112,6 +98,7 @@ public class Song(
             LoopLyricIdx = loopLineIdx;
             Duration += newLoopStart - curLoopStart;
             LoopStart = newLoopStart;
+            Lyrics = [.. Lyrics.Where(l => l.StartTime >= 0 && Math.Max(l.StartTime, l.EndTime) < Duration)];
         }
         else if (LoopStart is not float curLoopStart)
         {
@@ -119,19 +106,18 @@ public class Song(
         }
         else if (Lyrics.Length > 0)
         {
+            LoopLyricIdx = -1;
             var loopLyricIdx = getLyricIdxAtTime(curLoopStart) ?? 0;
-            if (Lyrics[loopLyricIdx].EndTime < LoopStart && loopLyricIdx == LoopLyricIdx)
+
+            if (loopLyricIdx >= 0 && loopLyricIdx < Lyrics.Length)
             {
-                // no lyrics after loop point
-                LoopLyricIdx = -1;
-            }
-            else if (Lyrics[loopLyricIdx].StartTime < LoopStart)
-            {
-                LoopLyricIdx = loopLyricIdx + 1;
+                LoopLyricIdx = loopLyricIdx;
+                if (Lyrics[loopLyricIdx].StartTime < LoopStart)
+                    LoopLyricIdx++;
             }
             else
             {
-                LoopLyricIdx = loopLyricIdx;
+                LoopLyricIdx = -1;
             }
         }
         else
@@ -144,7 +130,7 @@ public class Song(
             var lyric = Lyrics[i];
 
             var nextLyricIdx = GetNextLyricIdx(i);
-            if (nextLyricIdx >= 0)
+            if (nextLyricIdx >= 0 && nextLyricIdx < Lyrics.Length)
             {
                 var nextLyric = Lyrics[nextLyricIdx];
 
@@ -176,30 +162,42 @@ public class Song(
     public float LoopElapsedTime(
         float rawElapsedTime,
         float overflowOffset = 0
+    ) => LoopTime(
+        rawElapsedTime,
+        Duration,
+        overflowOffset,
+        LoopStart
+    );
+
+    public static float LoopTime(
+        float totalTime,
+        float duration,
+        float overflowOffset = 0,
+        float? loopStartTime = null
     )
     {
         // for songs that don't loop
-        if (LoopStart is not float loopStart)
-            return rawElapsedTime + overflowOffset;
+        if (loopStartTime is not float loopStart)
+            return totalTime + overflowOffset;
 
         float loopElapsedTime;
 
         if (overflowOffset < 0)
         {
-            var timeSinceBoundary = rawElapsedTime;
+            var timeSinceBoundary = totalTime;
             if (timeSinceBoundary >= loopStart)
                 timeSinceBoundary -= loopStart;
 
             var overflowPastBoundary = timeSinceBoundary + overflowOffset;
             loopElapsedTime = overflowPastBoundary <= 0
-                ? Duration + (overflowPastBoundary % (Duration - loopStart))
-                : (rawElapsedTime + overflowOffset);
+                ? duration + (overflowPastBoundary % (duration - loopStart))
+                : (totalTime + overflowOffset);
         }
         else
         {
-            var offsetElapsedTime = rawElapsedTime + overflowOffset;
-            loopElapsedTime = offsetElapsedTime >= Duration
-                ? ((offsetElapsedTime - loopStart) % (Duration - loopStart)) + loopStart
+            var offsetElapsedTime = totalTime + overflowOffset;
+            loopElapsedTime = offsetElapsedTime >= duration
+                ? ((offsetElapsedTime - loopStart) % (duration - loopStart)) + loopStart
                 : offsetElapsedTime;
         }
 

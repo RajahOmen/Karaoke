@@ -57,15 +57,16 @@ public partial class SongLoaderService(
         // custom tags
         { "loop", (SongTag.LoopLineIndex, s => int.Parse(s)) },
         { "ids", (SongTag.BgmIds, parseBgmIds) },
-        { "idoffsets", (SongTag.BgmIdOffsets, parseBgmIdOffsets) }
     }.ToFrozenDictionary();
 
+    private const string TranslationTag = "tr";
+
+    private const int DefaultPriority = 2;
     private static readonly FrozenDictionary<string, int> SubcategoryPriority = new Dictionary<string, int>()
     {
-        { "official", 1 },
-        { "unofficial", 0 },
+        { "official", DefaultPriority - 1 },
+        { "unofficial", DefaultPriority - 2 },
     }.ToFrozenDictionary();
-    private const int DefaultPriority = 2;
     private Dictionary<uint, List<string>> songLyricFiles = [];
 
 
@@ -143,10 +144,10 @@ public partial class SongLoaderService(
 
             try
             {
-                var (songLyrics, songTags) = parseLyricFileLines(lyricLines);
+                var (songLyrics, songTags) = parseLyricFileLines(lyricLines, song.Id);
 
-                if (new FileInfo(lyricsFile).Directory?.Name is string subdirName)
-                    songTags[SongTag.LyricCategory] = subdirName;
+                if (getSongFileCateogry(lyricsFile, pluginInterface.ConfigDirectory) is string category)
+                    songTags[SongTag.LyricCategory] = category;
 
                 pluginLog.Debug($"=== PARSE '{song.Name}' [{lyricsFile}] ===");
                 pluginLog.Debug($"==== TAGS ====");
@@ -204,6 +205,7 @@ public partial class SongLoaderService(
         pluginLog.Info($"Fetching lyrics from repo: {LyricRepoUrl}");
         var contents = await httpClient.GetStreamAsync(LyricRepoUrl, cancellationToken);
         var archive = new ZipArchive(contents, ZipArchiveMode.Read);
+        List<Task> extractTasks = [];
         foreach (var entry in archive.Entries)
         {
             if (entry.FullName.EndsWith('/'))
@@ -211,8 +213,23 @@ public partial class SongLoaderService(
             pluginLog.Verbose($"Loading repo file: {entry.FullName}");
             var path = Path.Combine(lyricsDirectory, entry.FullName.Replace(LyricRepoRootDir, ""));
             new FileInfo(path).Directory?.Create();
-            await entry.ExtractToFileAsync(path, overwrite: true, cancellationToken: cancellationToken);
+            extractTasks.Add(entry.ExtractToFileAsync(path, overwrite: true, cancellationToken: cancellationToken));
         }
+        await Task.WhenAll(extractTasks);
+    }
+
+    private static string? getSongFileCateogry(string filePath, DirectoryInfo configDir)
+    {
+        if (
+            Path.GetRelativePath(configDir.FullName, filePath) is string path and { Length: > 0 }
+            && !path.StartsWith("..")
+            && !Path.IsPathRooted(path)
+            && Path.GetDirectoryName(path) is string subdirectories
+            && !subdirectories.IsNullOrEmpty()
+            && subdirectories.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) is string[] subDirs and { Length: > 1 }
+        )
+            return subDirs[1];
+        return null;
     }
 
     private async Task<Dictionary<uint, List<string>>> readAllLyricFiles(CancellationToken cancellationToken)
@@ -226,37 +243,43 @@ public partial class SongLoaderService(
             new EnumerationOptions() { RecurseSubdirectories = true }
         );
 
-        var bgmIdFileMapping = new Dictionary<uint, List<string>>();
+        var bgmIdFileMapping = new Dictionary<uint, List<(string FileName, int Priority)>>();
 
         var tasks = files.Select(f => parseBgmIdsFromFile(f, cancellationToken));
         var bgmIds = await Task.WhenAll(tasks);
 
-        pluginLog.Verbose($"Song Id => Lyric Files:");
+        pluginLog.Verbose($"Song Id => [Priority] Lyric File:");
         for (var i = 0; i < files.Length; i++)
         {
             var fileName = files[i];
             foreach (var bgmId in bgmIds[i])
             {
-                pluginLog.Verbose($"{bgmId} => {fileName}");
+                var priority = SubcategoryPriority.GetValueOrDefault(
+                    getSongFileCateogry(fileName, pluginInterface.ConfigDirectory) ?? "",
+                    DefaultPriority
+                );
+                pluginLog.Verbose($"{bgmId} => [{priority}] {fileName}");
 
                 if (!bgmIdFileMapping.TryGetValue(bgmId, out var lyricFiles))
                 {
                     lyricFiles = [];
                     bgmIdFileMapping[bgmId] = lyricFiles;
                 }
-                lyricFiles.Add(fileName);
+
+                lyricFiles.Add((fileName, priority));
             }
         }
 
+        var bgmIdOrderedMapping = new Dictionary<uint, List<string>>();
         foreach (var (bgmId, bgmFileList) in bgmIdFileMapping)
         {
-            bgmIdFileMapping[bgmId] = bgmFileList
-                .OrderByDescending(f =>
-                    SubcategoryPriority.GetValueOrDefault(new FileInfo(f).Directory?.Name ?? "", DefaultPriority)
-                ).ToList();
+            bgmIdOrderedMapping[bgmId] = bgmFileList
+                .OrderByDescending(bgm => bgm.Priority)
+                .Select(bgm => bgm.FileName)
+                .ToList();
         }
 
-        return bgmIdFileMapping;
+        return bgmIdOrderedMapping;
     }
 
     private async Task<uint[]> parseBgmIdsFromFile(string filePath, CancellationToken cancellationToken)
@@ -295,7 +318,7 @@ public partial class SongLoaderService(
         }
     }
 
-    private (List<LyricLine> Lyrics, Dictionary<SongTag, object> Tags) parseLyricFileLines(List<string> lyricLines)
+    private (List<LyricLine> Lyrics, Dictionary<SongTag, object> Tags) parseLyricFileLines(List<string> lyricLines, uint songId)
     {
         List<LyricLine> lyrics = [];
         Dictionary<SongTag, object> tags = [];
@@ -317,13 +340,36 @@ public partial class SongLoaderService(
                         object val = match.Groups[2].Value;
                         try
                         {
+                            var parsedVal = val;
                             if (parseFunc is not null)
-                                val = parseFunc(match.Groups[2].Value);
-                            tags.Add(type, val);
+                            {
+                                pluginLog.Debug($"Parsing tag values of {match.Value}");
+                                parsedVal = parseTagVal(
+                                    match.Groups[2].Value,
+                                    parseFunc,
+                                    songId
+                                );
+                            }
+
+                            if (parsedVal is not null)
+                                tags.Add(type, parsedVal);
+                            else
+                                pluginLog.Debug($"No value for song id {songId} found in value {match.Value}");
                         }
                         catch (Exception ex)
                         {
                             pluginLog.Warning($"Unable to parse song tag value '{val}' (type: '{type}'): {line}\n{ex.Message}");
+                        }
+                    }
+                    else if (tagTypeStr == TranslationTag)
+                    {
+                        if (lyrics.Count > 0 && lyrics[^1].TranslatedText is null)
+                        {
+                            lyrics[^1] = lyrics[^1] with { TranslatedText = match.Groups[2].Value };
+                        }
+                        else
+                        {
+                            pluginLog.Warning($"Invalid translation tag (line {lineIdx}/{lyricLines.Count - 1}), previous lyric not found or already has a translation");
                         }
                     }
                     else
@@ -350,7 +396,8 @@ public partial class SongLoaderService(
 
     public Song GetSongById(
         uint songId,
-        SongLoopData songLoopData
+        SongLoopData songLoopData,
+        bool loadLyrics = true
     )
     {
         var songName = songNameService.GetSongName(songId);
@@ -363,29 +410,17 @@ public partial class SongLoaderService(
             loopStart: songLoopData.LoopStartMillis / 1000f
         );
 
-        cancelLoadLyrics.Cancel();
-        cancelLoadLyrics = new();
-        _ = Task.Run(
-            async () => await loadSongLyricsAsync(song, cancelLoadLyrics.Token),
-            cancelLoadLyrics.Token
-        );
+        if (loadLyrics)
+        {
+            cancelLoadLyrics.Cancel();
+            cancelLoadLyrics = new();
+            _ = Task.Run(
+                async () => await loadSongLyricsAsync(song, cancelLoadLyrics.Token),
+                cancelLoadLyrics.Token
+            );
+        }
 
         return song;
-    }
-
-    private static object parseBgmIdOffsets(string offsetStr)
-    {
-        if (BgmIdOffsetRegex().Matches(offsetStr) is not { Count: > 0 } matches)
-            throw new FormatException($"No offset strings found for tag: '{offsetStr}'");
-
-        var offsets = new (uint Id, float Offset)[matches.Count];
-        for (var i = 0; i < matches.Count; i++)
-        {
-            var id = uint.Parse(matches[i].Groups[1].Value);
-            var offset = float.Parse(matches[i].Groups[2].Value);
-            offsets[i] = (id, offset);
-        }
-        return offsets;
     }
 
     private static object parseBgmIds(string idsStr)
@@ -401,14 +436,40 @@ public partial class SongLoaderService(
     private static object parseGlobalOffset(string offsetStr)
     {
         var direction = offsetStr.StartsWith('-')
-            ? 1 : -1;
+            ? -1 : 1;
         var seconds = float.Parse(offsetStr.TrimStart('+', '-'));
         return seconds * direction;
+    }
+
+    private object? parseTagVal(string tagValStr, Func<string, object> valParseFunc, uint songId)
+    {
+        if (PerIdTagRegex().Matches(tagValStr) is not { Count: > 0 } matches)
+        {
+            pluginLog.Debug($"Parsed non-id-specific tag value: {tagValStr}");
+            return valParseFunc(tagValStr);
+        }
+
+        for (var i = 0; i < matches.Count; i++)
+        {
+            var parsedSongId = uint.Parse(matches[i].Groups[1].Value);
+            if (parsedSongId == songId)
+            {
+                pluginLog.Debug($"Parsed id-specific tag value: {matches[i].Value}");
+                return valParseFunc(matches[i].Groups[2].Value);
+            }
+            else
+            {
+                pluginLog.Debug($"Found value for wrong song id: {matches[i].Value}");
+            }
+        }
+        return null;
     }
 
     [GeneratedRegex(@"([0-9]*):([^;\]]*)")]
     private static partial Regex BgmIdOffsetRegex();
 
+    [GeneratedRegex(@"([0-9]*):([^;\]]*)")]
+    private static partial Regex PerIdTagRegex();
 
     [GeneratedRegex(@"^\[([a-z,A-Z,#]*):([^]]*)\]")]
     private static partial Regex TagRegex();

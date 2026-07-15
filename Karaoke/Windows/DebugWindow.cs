@@ -42,9 +42,6 @@ public class DebugWindow : Window, IDisposable
             MinimumSize = new Vector2(375, 330),
             MaximumSize = new Vector2(float.MaxValue, float.MaxValue)
         };
-
-        //var file = new FileInfo(Path.Combine(PluginInterface.AssemblyLocation.Directory?.FullName!, "goat.png"));
-        //GoatImage = textureProvider.GetFromFile(file);
     }
 
     private float offset = 0.0f;
@@ -56,6 +53,16 @@ public class DebugWindow : Window, IDisposable
 
         if (ImGui.Button("Config"))
             configWindow.Toggle();
+
+        ImGui.SameLine();
+
+        if (ImGui.Button("Log BGM Info"))
+            bgmService.LogData();
+
+        var maxDelay = 350;
+        ImGui.Spacing();
+        ImGui.SliderFloat($"Lyric Delay", ref offset, -maxDelay, maxDelay, $"%.1fs {(offset < 0 ? "(earlier)" : "(later)")}");
+        ImGui.Spacing();
 
         ImGui.Separator();
 
@@ -70,12 +77,24 @@ public class DebugWindow : Window, IDisposable
         var totalTime = bgmService.TotalElapsedTime;
         var totalAdjust = rawOffsetTime - totalTime;
         var curUnadjust = bgmService.CurrentSong?.LoopElapsedTime(rawOffsetTime, Configuration.GlobalLyricDelay) ?? 0f;
+        var curNoLyricData = 0f;
+        if (bgmService.CurrentSongLoopData is SongLoopData loopData)
+        {
+            curNoLyricData = Song.LoopTime(
+                totalTime,
+                loopData.LoopDurationMillis / 1000,
+                Configuration.GlobalLyricDelay,
+                loopStartTime: loopData.LoopStartMillis / 1000
+            );
+        }
+
         var curAdjust = bgmService.CurrentSong?.LoopElapsedTime(totalTime, Configuration.GlobalLyricDelay) ?? 0f;
         ImGui.Text($"{framework.LastUpdate.Hour}:{framework.LastUpdate.Minute:00}.{framework.LastUpdate.Second:00}.{framework.LastUpdate.Millisecond:000}{framework.LastUpdate.Microsecond:000}{framework.LastUpdate.Nanosecond}");
         ImGui.Text($"LastUpdate (s): {framework.LastUpdate.TimeOfDay.TotalMicroseconds / 1000000d:F10}");
         ImGui.Text($"Now (s): {nowTime.TotalMicroseconds / 1000000d:F10}");
         ImGui.Text($"current: {curTime:F10}");
         ImGui.Text($"rawElapsedTime: {rawTime:F10}");
+        ImGui.Text($"current (no lyric file adjust): {curNoLyricData:F10} [diff: {(curNoLyricData - curTime):F10}]");
         ImGui.Text($"totalTime: {totalTime:F10}");
         ImGui.Text($"raw + offset: {rawOffsetTime:F10}");
         ImGui.Text($"(raw + offset) - totalTime: {totalAdjust:F10}");
@@ -85,11 +104,69 @@ public class DebugWindow : Window, IDisposable
         ImGui.Text($"CurrentElapsedUnadjusted: {curUnadjust:F10}");
         ImGui.Text($"current diff: {curUnadjust - curAdjust:F10}");
 
+        if (bgmService.CurrentSong is Song song)
+        {
+            ImGui.Spacing();
+            ImGui.Text(song.Name ?? "???");
+            ImGui.Spacing();
+            var loopTime = song.Duration - song.LoopStart;
+            var actualOffset = offset;
+
+            if (bgmService.CurrentElapsedTime < song.LoopStart)
+            {
+                var resultTime = bgmService.CurrentElapsedTime - offset;
+                if (resultTime < 0)
+                {
+                    actualOffset = -resultTime;
+                }
+                else if (song.LoopStart is float loopStart && resultTime >= loopStart)
+                {
+                    actualOffset = offset - (loopStart - curTime);
+                    curTime = loopStart;
+                }
+            }
+
+            var lyricTime = curTime - (actualOffset % loopTime);
+            if (lyricTime < song.LoopStart)
+                lyricTime += loopTime;
+            if (lyricTime > song.Duration)
+                lyricTime -= loopTime;
+
+            ImGui.Text(
+                $"{Util.FormatTime(bgmService.CurrentElapsedTime, 2)} " +
+                $"/ {Util.FormatTime(song.Duration, 2)} " +
+                $"(Loops @ {Util.FormatTime(song.LoopStart ?? -1, 2)})\n" +
+                $"{bgmService.CurrentElapsedTime < song.LoopStart}\n" +
+                $"Offset:       {offset:F1}\n" +
+                $"CurElapTime:  {bgmService.CurrentElapsedTime:F1}\n" +
+                $"lyricTime:    {lyricTime:F1}\n" +
+                $"curTime:      {curTime:F1}\n" +
+                $"actualOffset: {actualOffset:F1}\n" +
+                $"loopTime: {loopTime}\n" +
+                $"(actualOffset % loopTime): {actualOffset % loopTime}\n"
+            );
+            ImGui.Spacing();
+        }
+        else if (bgmService.LoadingSong)
+        {
+            ImGui.Spacing();
+            ImGui.Text("Loading song data...");
+            ImGui.Spacing();
+        }
+        else
+        {
+            ImGui.Spacing();
+            ImGui.Text("No song data");
+            ImGui.Spacing();
+        }
+
+        ImGui.Separator();
+
         if (bgmService.CurrentSong is Song curSong)
         {
             ImGui.Text($"=== Raw ===");
             var idxUnadjust = curSong.GetLyricIdxAtTime(curUnadjust);
-            if (idxUnadjust >= 0)
+            if (idxUnadjust >= 0 && idxUnadjust < (curSong.Lyrics?.Length ?? 0))
             {
                 var nextLyric = curSong.Lyrics![idxUnadjust];
                 LyricLine? curLyric = null;
@@ -129,7 +206,7 @@ public class DebugWindow : Window, IDisposable
 
             ImGui.Text("=== Rate ===");
             var idxAdjust = curSong.GetLyricIdxAtTime(curAdjust);
-            if (idxAdjust >= 0)
+            if (idxAdjust >= 0 && idxAdjust < (curSong.Lyrics?.Length ?? 0))
             {
                 var nextLyric = curSong.Lyrics![idxAdjust];
                 LyricLine? curLyric = null;
@@ -165,94 +242,6 @@ public class DebugWindow : Window, IDisposable
                 ImGui.Spacing();
                 ImGui.Separator();
             }
-        }
-
-        ImGui.Spacing();
-        if (bgmService.CurrentSong is Song song)
-        {
-            ImGui.Spacing();
-            ImGui.Text(song.Name ?? "???");
-            ImGui.Spacing();
-            var loopTime = song.Duration - song.LoopStart;
-            var actualOffset = offset;
-
-            if (bgmService.CurrentElapsedTime < song.LoopStart)
-            {
-                var resultTime = bgmService.CurrentElapsedTime - offset;
-                if (resultTime < 0)
-                {
-                    actualOffset = -resultTime;
-                }
-                else if (song.LoopStart is float loopStart && resultTime >= loopStart)
-                {
-                    actualOffset = offset - (loopStart - curTime);
-                    curTime = loopStart;
-                }
-            }
-
-            var lyricTime = curTime - (actualOffset % loopTime);
-            if (lyricTime < song.LoopStart)
-                lyricTime += loopTime;
-            if (lyricTime > song.Duration)
-                lyricTime -= loopTime;
-
-            //ImGui.Text(
-            //    $"{FormatTime(bgmService.CurrentElapsedTime)} " +
-            //    $"/ {FormatTime(song.Duration)} " +
-            //    $"(Loops @ {FormatTime(song.LoopStart)})"
-            //);
-
-            ImGui.Text(
-                $"{Util.FormatTime(bgmService.CurrentElapsedTime, 2)} " +
-                $"/ {Util.FormatTime(song.Duration, 2)} " +
-                $"(Loops @ {Util.FormatTime(song.LoopStart ?? -1, 2)})\n" +
-                $"{bgmService.CurrentElapsedTime < song.LoopStart}\n" +
-                $"Offset:       {offset:F1}\n" +
-                $"CurElapTime:  {bgmService.CurrentElapsedTime:F1}\n" +
-                $"lyricTime:    {lyricTime:F1}\n" +
-                $"curTime:      {curTime:F1}\n" +
-                $"actualOffset: {actualOffset:F1}\n" +
-                $"loopTime: {loopTime}\n" +
-                $"(actualOffset % loopTime): {actualOffset % loopTime}\n"
-            );
-            ImGui.Spacing();
-        }
-        else if (bgmService.LoadingSong)
-        {
-            ImGui.Spacing();
-            ImGui.Text("Loading song data...");
-            ImGui.Spacing();
-            ImGui.NewLine();
-            ImGui.Spacing();
-            ImGui.NewLine();
-            ImGui.Spacing();
-        }
-        else
-        {
-            ImGui.Spacing();
-            ImGui.Text("No song data");
-            ImGui.Spacing();
-            ImGui.NewLine();
-            ImGui.Spacing();
-            ImGui.NewLine();
-            ImGui.Spacing();
-        }
-
-        ImGui.Separator();
-
-
-        var maxDelay = 350;
-        ImGui.Spacing();
-        ImGui.SliderFloat($"Lyric Delay", ref offset, -maxDelay, maxDelay, $"%.1fs {(offset < 0 ? "(earlier)" : "(later)")}");
-        ImGui.Spacing();
-
-        ImGui.Separator();
-
-        ImGui.Spacing();
-        ImGui.Spacing();
-        if (ImGui.Button("Log BGM"))
-        {
-            bgmService.LogData();
         }
 
         ImGui.Spacing();

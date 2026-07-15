@@ -69,7 +69,7 @@ public class LyricPlayerWindow : Window, IDisposable
 
     private void openWithSong(Song song)
     {
-        var maxLength = Math.Max(DefaultWidth * ImGuiHelpers.GlobalScale, ImGui.CalcTextSize(song.Name).X + MinBufferWidth);
+        var maxLength = Math.Max(DefaultWidth * ImGuiHelpers.GlobalScale, ImGui.CalcTextSize(song.Name?[..Math.Min(50, song.Name.Length)] ?? "").X + MinBufferWidth);
         foreach (var lyric in song.Lyrics ?? [])
             maxLength = Math.Max(maxLength, ImGui.CalcTextSize(lyric.Text).X + MinBufferWidth);
 
@@ -287,6 +287,8 @@ public class LyricPlayerWindow : Window, IDisposable
                         configuration.DebugMode,
                         configuration.HighlightLyrics
                     );
+                    if (lyric.TranslatedText is string translated && ImGui.IsItemHovered())
+                        ImGui.SetTooltip(translated);
                 }
                 else
                 {
@@ -330,10 +332,15 @@ public class LyricPlayerWindow : Window, IDisposable
                             configuration.DebugMode,
                             configuration.HighlightLyrics
                         );
+                        if (lyric.TranslatedText is string translated && ImGui.IsItemHovered())
+                            ImGui.SetTooltip(translated);
                     }
                     else {
                         using (ImRaii.Disabled(configuration.EmphasizeCurrentLine))
                             ImGuiHelpers.CenteredText(lyric.ToDisplayString());
+
+                        if (lyric.TranslatedText is string translated && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                            ImGui.SetTooltip(translated);
                     }
                 }
             }
@@ -376,6 +383,15 @@ public class LyricPlayerWindow : Window, IDisposable
         return true;
     }
 
+    private static void drawSongCredit(string creditTitle, string credits)
+    {
+        // pluralize (not localization friendly)
+        if (credits.Contains(',') | credits.Contains('/'))
+            creditTitle += "s";
+
+        ImGui.Text($"{creditTitle}: {credits}");
+    }
+
     private void drawSongHeader(Song song)
     {
         if (configuration.ShowSongName || configuration.ShowSongTime)
@@ -395,13 +411,13 @@ public class LyricPlayerWindow : Window, IDisposable
                         ImGui.Text($"Title: {song.Name}");
 
                         if (song.Tags.GetValueOrDefault(SongTag.SongAuthor) is string author)
-                            ImGui.Text($"Author(s): {author}");
+                            drawSongCredit("Author", author);
                         if (song.Tags.GetValueOrDefault(SongTag.Album) is string album)
                             ImGui.Text($"Album: {album}");
                         if (song.Tags.GetValueOrDefault(SongTag.Artist) is string artist)
-                            ImGui.Text($"Performer(s): {artist}");
+                            drawSongCredit("Performer", artist);
                         if (song.Tags.GetValueOrDefault(SongTag.Lyricist) is string lyricist)
-                            ImGui.Text($"Lyricist(s): {lyricist}");
+                            drawSongCredit("Lyricist", lyricist);
                         ImGui.Text($"Length: {Util.FormatTime(song.Duration, decPlaces: 0, padMins: false)}");
                         if (song.Tags.GetValueOrDefault(SongTag.LrcAuthor) is string lrcAuthor)
                             ImGui.Text($"Sync By: {lrcAuthor}");

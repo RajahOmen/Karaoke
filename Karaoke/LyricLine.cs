@@ -17,6 +17,7 @@ public partial struct LyricLine
 {
     public readonly float StartTime;
     public readonly string Text;
+    public string? TranslatedText = null;
     public float EndTime { get; private set; } = 0.0f;
     public float TimeUntilNext { get; private set; } = 0.0f;
     public int? OverlappingLineIdx { get; set; } = null;
@@ -29,6 +30,7 @@ public partial struct LyricLine
     )
     {
         StartTime = startTime;
+        EndTime = startTime;
         Text = text;
 
         Segments = segments ?? [
@@ -46,6 +48,7 @@ public partial struct LyricLine
     {
         StartTime = original.StartTime + offset;
         Text = original.Text;
+        TranslatedText = original.TranslatedText;
         EndTime = original.EndTime + offset;
         Segments = original
             .Segments
@@ -178,7 +181,12 @@ public partial struct LyricLine
     public override string ToString()
     {
         var text = Text;
-        return $"[{Util.FormatTime(StartTime, 4)} -> {Util.FormatTime(EndTime, 4)} ({TimeUntilNext:F2}s) [{(OverlappingLineIdx?.ToString() ?? " ")}]] '{string.Join('|', Segments.Select(s => $"<{Util.FormatTime(s.StartTime, 2)}>{text[s.StartIdx..s.EndIdx]}"))}'";
+        return (
+            $"[{Util.FormatTime(StartTime, 4)} -> {Util.FormatTime(EndTime, 4)} ({TimeUntilNext:F2}s) " +
+            $"[{(OverlappingLineIdx?.ToString() ?? " ")}]] " +
+            $"'{string.Join('|', Segments.Select(s => $"<{Util.FormatTime(s.StartTime, 2)}>{text[s.StartIdx..s.EndIdx]}"))}'" +
+            $"{(TranslatedText is string transText ? $" [TRANSLATION: {transText}]" : string.Empty)}"
+        );
     }
 
     public void AddNextLyricTiming(float timeTilNextLyric)

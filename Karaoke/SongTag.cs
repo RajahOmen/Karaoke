@@ -12,7 +12,6 @@ public enum SongTag
     Offset,
     Duration,
     LoopLineIndex,
-    BgmIdOffsets,
     BgmIds,
     Comment,
     // not a song tag in the lyric file itself, but the name of the subdirectory it comes from
