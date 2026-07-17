@@ -219,7 +219,7 @@ public class LyricPlayerWindow : Window, IDisposable
             if (!noMoreLyrics && remainingTime >= 0 && newIdx >= 0)
             {
                 var prevLyric = song.Lyrics[newIdx];
-                remainingTime -= prevLyric.TimeUntilNext + prevLyric.EndTime - prevLyric.StartTime;
+                remainingTime -= prevLyric.Duration + prevLyric.TimeUntilNext;
             }
 
             lyricIdxs[i] = newIdx;

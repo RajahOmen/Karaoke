@@ -263,7 +263,7 @@ public class Song(
         if (lyricIdx == LoopLyricIdx && reverse)
         {
             var lyric = Lyrics![^1];
-            if (lyric.EndTime - lyric.StartTime + lyric.TimeUntilNext <= wrapTimeAllowance)
+            if (lyric.Duration + lyric.TimeUntilNext <= wrapTimeAllowance)
                 return Lyrics!.Length - 1;
 
             return -1;
@@ -273,7 +273,21 @@ public class Song(
         if (lyricIdx == Lyrics?.Length - 1 && !reverse)
             return LoopLyricIdx;
 
-        // else, increment in direction specified
-        return reverse ? lyricIdx - 1 : lyricIdx + 1;
+        // only back up if there is enough time allowance to do so
+        if (reverse)
+        {
+            // can't go back any farther
+            if (lyricIdx == 0)
+                return -1;
+
+            var lyric = Lyrics![lyricIdx - 1];
+            if (lyric.Duration + lyric.TimeUntilNext <= wrapTimeAllowance)
+                return lyricIdx - 1;
+
+            return -1;
+        }
+
+        // only case left is next lyric in sequence
+        return lyricIdx + 1;
     }
 }

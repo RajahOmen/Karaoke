@@ -19,6 +19,7 @@ public partial struct LyricLine
     public readonly string Text;
     public string? TranslatedText = null;
     public float EndTime { get; private set; } = 0.0f;
+    public readonly float Duration => EndTime - StartTime;
     public float TimeUntilNext { get; private set; } = 0.0f;
     public int? OverlappingLineIdx { get; set; } = null;
     public readonly LyricSegment[] Segments;
@@ -193,7 +194,7 @@ public partial struct LyricLine
     {
         if (EndTime == 0.0f)
             EndTime = timeTilNextLyric;
-        TimeUntilNext = Math.Max(timeTilNextLyric - (EndTime - StartTime), 0f);
+        TimeUntilNext = Math.Max(timeTilNextLyric - Duration, 0f);
     }
 
     [GeneratedRegex(@"^\s*\[([^]]*)\]\s*(.*?)\s*$")]
