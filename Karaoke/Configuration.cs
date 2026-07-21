@@ -21,7 +21,7 @@ public class Configuration : IPluginConfiguration
     public GameFontFamily? LyricFont { get; set; } = null;
     public uint NumLyricsBehind { get; set; } = 1;
     public uint NumLyricsAhead { get; set; } = 1;
-    public OpenWindowOn OpenWindowOn { get; set; } = OpenWindowOn.SongChange;
+    public OpenWindowOn OpenWindowOn { get; set; } = OpenWindowOn.SongChangeLyrics;
     public bool ShowSongName { get; set; } = true;
     public bool ShowSongTime { get; set; } = true;
     public bool ShowLoopStartTime { get; set; } = true;

@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.0.2.0</Version>
+    <Version>0.0.2.1</Version>
     <Description></Description>
     <PackageProjectUrl>https://github.com/RajahOmen/Karaoke</PackageProjectUrl>
     <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
