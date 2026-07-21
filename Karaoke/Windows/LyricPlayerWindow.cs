@@ -1,6 +1,8 @@
 using Dalamud.Bindings.ImGui;
+using Dalamud.Game.ClientState.JobGauge.Enums;
 using Dalamud.Interface;
 using Dalamud.Interface.Components;
+using Dalamud.Interface.Style;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
@@ -20,10 +22,12 @@ public class LyricPlayerWindow : Window, IDisposable
     private readonly BGMService bgmService;
     private readonly SongLoaderService songLoaderService;
     private readonly IDalamudPluginInterface pluginInterface;
+    private readonly FontManager fontManager;
     public bool OpenedManually = false;
 
     private const int DefaultWidth = 300;
     private const int MinBufferWidth = 40;
+    private bool resizeQueued = true;
 
     // We give this window a constant ID using ###
     // This allows for labels being dynamic, like "{FPS Counter}fps###XYZ counter window",
@@ -33,7 +37,8 @@ public class LyricPlayerWindow : Window, IDisposable
         Configuration configuration,
         BGMService bgmService,
         SongLoaderService songLoaderService,
-        IDalamudPluginInterface pluginInterface
+        IDalamudPluginInterface pluginInterface,
+        FontManager fontManager
     ) : base("Karaoke###karaoke_lyric_player")
     {
         Flags = ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
@@ -57,8 +62,10 @@ public class LyricPlayerWindow : Window, IDisposable
         this.bgmService = bgmService;
         this.songLoaderService = songLoaderService;
         this.pluginInterface = pluginInterface;
+        this.fontManager = fontManager;
         this.bgmService.OnSongChange += handleOnSongChange;
         this.songLoaderService.OnLyricLoad += handleOnLyricLoad;
+        this.fontManager.OnFontChange += handleOnFontChange;
     }
 
     public void Dispose()
@@ -67,14 +74,20 @@ public class LyricPlayerWindow : Window, IDisposable
         songLoaderService.OnLyricLoad -= handleOnLyricLoad;
     }
 
-    private void openWithSong(Song song)
+    private void handleOnFontChange()
     {
-        var maxLength = Math.Max(DefaultWidth * ImGuiHelpers.GlobalScale, ImGui.CalcTextSize(song.Name?[..Math.Min(50, song.Name.Length)] ?? "").X + MinBufferWidth);
-        foreach (var lyric in song.Lyrics ?? [])
-            maxLength = Math.Max(maxLength, ImGui.CalcTextSize(lyric.Text).X + MinBufferWidth);
+        QueueResize();
+    }
 
-        Size = new Vector2(maxLength / ImGuiHelpers.GlobalScale, 0);
+    private void openAndResize()
+    {
+        QueueResize();
         IsOpen = true;
+    }
+
+    public void QueueResize()
+    {
+        resizeQueued = true;
     }
 
     private void handleOnLyricLoad()
@@ -92,7 +105,7 @@ public class LyricPlayerWindow : Window, IDisposable
             if ((song.Lyrics?.Length ?? 0) == 0)
                 return;
 
-            openWithSong(song);
+            openAndResize();
         }
         finally
         {
@@ -121,7 +134,7 @@ public class LyricPlayerWindow : Window, IDisposable
                     IsOpen = false;
                 else if (configuration.OpenWindowOn != OpenWindowOn.None)
                 {
-                    openWithSong(song);
+                    openAndResize();
                 }
             }
 
@@ -132,7 +145,25 @@ public class LyricPlayerWindow : Window, IDisposable
         }
     }
 
-    public override void PreDraw() { }
+    public override void PreDraw() {
+        if (!resizeQueued)
+            return;
+
+        if (!fontManager.LyricFont.Available)
+            return;
+
+        resizeQueued = false;
+
+        if (bgmService.CurrentSong is not Song song)
+            return;
+
+        var maxLength = Math.Max(DefaultWidth * ImGuiHelpers.GlobalScale, ImGui.CalcTextSize(song.Name?[..Math.Min(50, song.Name.Length)] ?? "").X + MinBufferWidth);
+        using var _ = fontManager.LyricFont.Push();
+        foreach (var lyric in song.Lyrics ?? [])
+            maxLength = Math.Max(maxLength, ImGui.CalcTextSize(lyric.Text).X + MinBufferWidth);
+
+        Size = new Vector2(maxLength / ImGuiHelpers.GlobalScale, 0);
+    }
 
     private const int MUSIC_LINE_IDX = -2;
 
@@ -258,6 +289,7 @@ public class LyricPlayerWindow : Window, IDisposable
             }
         }
 
+        var disabledLineCol = ImGui.GetColorU32((StyleModelV1.GetFromCurrent().BuiltInColors?.DalamudGrey2 ?? Vector4.One) with { W = 1f });
 
         for (var i = 0; i < lyricIdxs.Length; i++)
         {
@@ -319,7 +351,7 @@ public class LyricPlayerWindow : Window, IDisposable
                 {
                     if (lyricIdx == MUSIC_LINE_IDX)
                     {
-                        using (ImRaii.Disabled(configuration.EmphasizeCurrentLine))
+                        using (ImRaii.PushColor(ImGuiCol.Text, ImGui.GetColorU32(disabledLineCol), configuration.EmphasizeCurrentLine))
                             ImGuiHelpers.CenteredText(configuration.MusicLineInsert);
                     }
                     else
@@ -354,7 +386,7 @@ public class LyricPlayerWindow : Window, IDisposable
                             ImGui.SetTooltip(translated);
                     }
                     else {
-                        using (ImRaii.Disabled(configuration.EmphasizeCurrentLine))
+                        using (ImRaii.PushColor(ImGuiCol.Text, ImGui.GetColorU32(disabledLineCol), configuration.EmphasizeCurrentLine))
                             ImGuiHelpers.CenteredText(lyric.ToDisplayString());
 
                         if (lyric.TranslatedText is string translated && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
@@ -533,8 +565,8 @@ public class LyricPlayerWindow : Window, IDisposable
                 }
                 else if (song.Lyrics?.Length > 0)
                 {
-                    var lyricTime = song.LoopElapsedTime(bgmService.CurrentElapsedTime, -configuration.GlobalLyricDelay);
-                    drawLyrics(song, lyricTime);
+                    using var _ = fontManager.LyricFont.Push();
+                    drawLyrics(song, bgmService.CurrentLyricTime);
                 }
                 else
                 {

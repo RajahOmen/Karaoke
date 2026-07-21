@@ -246,6 +246,47 @@ public class Song(
         return getLyricIdxAtTime(time) ?? -1;
     }
 
+    public int GetLatestActiveLyricIdxAtTime(float time)
+    {
+        if (Lyrics is null || Lyrics.Length == 0)
+            return -1;
+
+        if (time < Lyrics[0].StartTime)
+            return -1;
+
+        if (time > Lyrics[^1].EndTime)
+        {
+            if (LoopLyricIdx < 0)
+                return -1;
+
+            if (time - Lyrics[^1].EndTime >= Lyrics[^1].TimeUntilNext)
+                return LoopLyricIdx;
+
+            return -1;
+        }
+
+        var lo = 0;
+        var hi = Lyrics.Length - 1;
+        var result = -1;
+
+        while (lo <= hi)
+        {
+            var mid = (lo + hi) / 2;
+            if (Lyrics[mid].StartTime <= time)
+            {
+                if (Lyrics[mid].EndTime >= time)
+                    result = mid;
+                lo = mid + 1; // keep searching for later match
+            }
+            else
+            {
+                hi = mid - 1;
+            }
+        }
+
+        return result;
+    }
+
     public int GetNextLyricIdx(
         int lyricIdx,
         bool reverse = false,
