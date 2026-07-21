@@ -1,4 +1,5 @@
 using Dalamud.Configuration;
+using Dalamud.Interface.GameFonts;
 using Dalamud.Plugin;
 using System;
 using System.Collections.Generic;
@@ -11,6 +12,13 @@ public class Configuration : IPluginConfiguration
     public int Version { get; set; } = 0;
 
     public float GlobalLyricDelay { get; set; } = 0.0f;
+    public DtrBarLyricDisplayType DtrBarLyricDisplayMode { get; set; } = DtrBarLyricDisplayType.LineHighlightSweep;
+    public ushort DtrBarTextColor { get; set; } = 518;
+    public ushort DtrBarGlowColor { get; set; } = 19;
+    public bool DisplayLyricInToast { get; set; } = false;
+    public bool DisplayLyricInFlyText { get; set; } = false;
+    public float? LyricFontSize { get; set; } = null;
+    public GameFontFamily? LyricFont { get; set; } = null;
     public uint NumLyricsBehind { get; set; } = 1;
     public uint NumLyricsAhead { get; set; } = 1;
     public OpenWindowOn OpenWindowOn { get; set; } = OpenWindowOn.SongChange;

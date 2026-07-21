@@ -23,6 +23,10 @@ public sealed class Plugin : IAsyncDalamudPlugin
         ICommandManager commandManager,
         ITextureProvider textureProvider,
         IDataManager dataManager,
+        IDtrBar dtrBar,
+        IToastGui toastGui,
+        IFlyTextGui flyTextGui,
+        IGameConfig gameConfig,
         IPluginLog pluginLog
         )
     {
@@ -41,6 +45,10 @@ public sealed class Plugin : IAsyncDalamudPlugin
                 collection.AddSingleton(commandManager);
                 collection.AddSingleton(textureProvider);
                 collection.AddSingleton(dataManager);
+                collection.AddSingleton(dtrBar);
+                collection.AddSingleton(toastGui);
+                collection.AddSingleton(flyTextGui);
+                collection.AddSingleton(gameConfig);
                 collection.AddSingleton(pluginLog);
                 collection.AddSingleton<WindowService>();
                 collection.AddSingleton<InstallerWindowService>();
@@ -51,6 +59,10 @@ public sealed class Plugin : IAsyncDalamudPlugin
                 collection.AddSingleton<BGMService>();
                 collection.AddSingleton<SongNameService>();
                 collection.AddSingleton<SongLoaderService>();
+                collection.AddSingleton<DtrBarService>();
+                collection.AddSingleton<ToastService>();
+                collection.AddSingleton<FlyTextService>();
+                collection.AddSingleton<FontManager>();
 
                 // fetch from web
                 collection.AddSingleton<HappyEyeballsCallback>();
@@ -60,7 +72,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
                         ConnectCallback = sp.GetService<HappyEyeballsCallback>()!.ConnectCallback
                     }
                 ));
-
+                
                 collection.AddSingleton<Window>(provider => provider.GetRequiredService<ConfigWindow>());
                 collection.AddSingleton<Window>(provider => provider.GetRequiredService<DebugWindow>());
                 collection.AddSingleton<Window>(provider => provider.GetRequiredService<LyricPlayerWindow>());
@@ -84,7 +96,10 @@ public sealed class Plugin : IAsyncDalamudPlugin
                 collection.AddHostedService(p => p.GetRequiredService<BGMService>());
                 collection.AddHostedService(p => p.GetRequiredService<SongNameService>());
                 collection.AddHostedService(p => p.GetRequiredService<SongLoaderService>());
-
+                collection.AddHostedService(p => p.GetRequiredService<DtrBarService>());
+                collection.AddHostedService(p => p.GetRequiredService<ToastService>());
+                collection.AddHostedService(p => p.GetRequiredService<FlyTextService>());
+                collection.AddHostedService(p => p.GetRequiredService<FontManager>());
             }).Build();
     }
 
