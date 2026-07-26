@@ -1,15 +1,8 @@
 using Dalamud.Game.Gui.FlyText;
-using Dalamud.Game.Gui.Toast;
 using Dalamud.Plugin.Services;
-using FFXIVClientStructs.FFXIV.Client.UI;
 using Microsoft.Extensions.Hosting;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using static FFXIVClientStructs.FFXIV.Client.UI.RaptureAtkModule;
-using static FFXIVClientStructs.FFXIV.Client.UI.RaptureAtkModule.Delegates;
 
 namespace Karaoke.Services;
 
@@ -28,7 +21,6 @@ public class FlyTextService(
     private readonly Configuration configuration = configuration;
 
     private LyricLine? currentLyric = null;
-    private int curSegIdx = -1;
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
