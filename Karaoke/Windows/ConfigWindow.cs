@@ -1,14 +1,18 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Game.Config;
 using Dalamud.Interface;
+using Dalamud.Interface.Components;
 using Dalamud.Interface.GameFonts;
+using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.ImGuiSeStringRenderer;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
+using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Graphics;
 using FFXIVClientStructs.FFXIV.Common.Component.Excel;
+using Karaoke.Font;
 using Karaoke.Services;
 using Lumina.Excel;
 using Lumina.Excel.Sheets;
@@ -16,6 +20,7 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -25,6 +30,7 @@ namespace Karaoke.Windows;
 public class ConfigWindow : Window, IDisposable
 {
     private readonly IPluginLog pluginLog;
+    private readonly IDalamudPluginInterface pluginInterface;
     private readonly Configuration configuration;
     private readonly BGMService bgmService;
     private readonly LyricPlayerWindow lyricPlayerWindow;
@@ -32,6 +38,7 @@ public class ConfigWindow : Window, IDisposable
     private readonly FontManager fontManager;
     private readonly IDataManager dataManager;
     private readonly IGameConfig gameConfig;
+    private readonly FileDialogManager fileDialogManager;
     private static readonly FrozenDictionary<OpenWindowOn, (string Name, string Tooltip)> OpenWindowOnNames = new Dictionary<OpenWindowOn, (string Name, string Tooltip)>()
     {
         { OpenWindowOn.None, ("Never", "Never automatically open the lyric player window") },
@@ -53,23 +60,31 @@ public class ConfigWindow : Window, IDisposable
         { HighlightLyricType.Word, ("Current Word", "Highlight current word on the line that is playing") }
     }.ToFrozenDictionary();
 
-    private static readonly FrozenDictionary<GameFontFamily, string> LyricFontNames = new Dictionary<GameFontFamily, string>
+    private static readonly FrozenDictionary<FontType, string> LyricFontNames = new Dictionary<FontType, string>
     {
-        { GameFontFamily.Axis, "Axis" },
-        { GameFontFamily.Jupiter, "Jupiter" },
-        { GameFontFamily.TrumpGothic, "Trump Gothic" },
-        { GameFontFamily.MiedingerMid, "Miedinger Mid" }
+        { FontType.DalamudDefault, "Dalamud" },
+        { FontType.GameAxis, "Axis" },
+        { FontType.GameJupiter, "Jupiter" },
+        { FontType.GameTrumpGothic, "Trump Gothic" },
+        { FontType.GameMiedingerMid, "Miedinger Mid" },
+        { FontType.VcrOsdMono, "VCR OSD Mono" },
+        { FontType.ComicRelief, "Comic Relief" },
+        { FontType.OpenDyslexic, "Open Dyslexic" },
+        { FontType.AtkinsonHyperlegible, "Atkinson Hyperlegible" },
+        { FontType.Custom, "Custom (Imported)" }
     }.ToFrozenDictionary();
 
     public ConfigWindow(
         IPluginLog pluginLog,
+        IDalamudPluginInterface pluginInterface,
         Configuration configuration,
         BGMService bgmService,
         LyricPlayerWindow lyricPlayerWindow,
         DtrBarService dtrBarService,
         FontManager fontManager,
         IDataManager dataManager,
-        IGameConfig gameConfig
+        IGameConfig gameConfig,
+        FileDialogManager fileDialogManager
     ) : base("Karaoke Config###karaoke_configuration_window")
     {
         Flags = ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
@@ -78,6 +93,7 @@ public class ConfigWindow : Window, IDisposable
         Size = new Vector2(400, 0);
         SizeCondition = ImGuiCond.Appearing;
         this.pluginLog = pluginLog;
+        this.pluginInterface = pluginInterface;
         this.configuration = configuration;
         this.bgmService = bgmService;
         this.lyricPlayerWindow = lyricPlayerWindow;
@@ -85,6 +101,7 @@ public class ConfigWindow : Window, IDisposable
         this.fontManager = fontManager;
         this.dataManager = dataManager;
         this.gameConfig = gameConfig;
+        this.fileDialogManager = fileDialogManager;
         this.colorSheet = dataManager.GetExcelSheet<UIColor>();
     }
     private readonly ExcelSheet<UIColor> colorSheet;
@@ -370,31 +387,87 @@ public class ConfigWindow : Window, IDisposable
 
     private void drawFontTypeCombo()
     {
-        var fontType = configuration.LyricFont ?? GameFontFamily.Axis;
+        var fontType = configuration.LyricFont ?? FontType.DalamudDefault;
 
         var fontName = LyricFontNames.GetValueOrDefault(fontType, "???");
 
-        using var combo = ImRaii.Combo("Lyric Font", fontName);
+        using (var combo = ImRaii.Combo("Lyric Font", fontName))
+        if (combo)
+        {
+            foreach (var (font, name) in LyricFontNames)
+            {
+                if (ImGui.Selectable(name, fontType == font))
+                {
+                    configuration.LyricFont = font;
+                    configuration.Save();
+                    _ = fontManager.BuildFonts();
+                }
+            }
+        }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip($"What font to display lyrics in\nWarning: Some fonts may not support all characters");
         if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
         {
-            configuration.LyricFont = null;
+            configuration.LyricFont = FontType.DalamudDefault;
             configuration.Save();
             _ = fontManager.BuildFonts();
         }
-        if (!combo)
-            return;
-
-        foreach (var (font, name) in LyricFontNames)
+        var buttonHovered = false;
+        using (ImRaii.Disabled(fontType != FontType.Custom))
         {
-            if (ImGui.Selectable(name, fontType == font))
+            if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.FileImport, "Import Font"))
             {
-                configuration.LyricFont = font;
-                configuration.Save();
-                _ = fontManager.BuildFonts();
+                fileDialogManager.OpenFileDialog(
+                    title: "Pick Font File",
+                    filters: "TrueType Font File {.ttf,.otf}",
+                    selectionCountMax: 1,
+                    startPath: pluginInterface.ConfigDirectory.FullName,
+                    callback: (finished, paths) =>
+                    {
+                        if (!finished)
+                            return;
+
+                        var newPath = (paths.Count > 0 && paths[0].Length > 0)
+                            ? paths[0]
+                            : null;
+
+                        if (!Path.Exists(newPath))
+                        {
+                            pluginLog.Debug($"New custom font path not found: [{newPath}]");
+                            newPath = null;
+                        }
+                        else
+                        {
+                            pluginLog.Debug($"Set custom font path to: {configuration.CustomLyricFontPath}");
+
+                        }
+
+                        configuration.CustomLyricFontPath = newPath;
+                        configuration.Save();
+                        _ = fontManager.BuildFonts();
+                    }
+                );
+            }
+            buttonHovered = ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled);
+            if (configuration.LyricFont == FontType.Custom)
+            {
+                ImGui.SameLine();
+                if (configuration.CustomLyricFontPath is string fontPath && Path.Exists(fontPath))
+                {
+                    ImGui.Text($"Current: {new FileInfo(fontPath).Name}");
+                    if (ImGui.IsItemHovered())
+                    {
+                        ImGui.SetTooltip(fontPath);
+                    }
+                }
+                else
+                {
+                    ImGui.Text("Current: None/Unknown");
+                }
             }
         }
+        if (buttonHovered)
+            ImGui.SetTooltip("Add a custom font file to use for lyrics");
     }
 
     public override void Draw()

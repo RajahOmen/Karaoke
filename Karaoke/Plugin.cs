@@ -1,7 +1,9 @@
+using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
 using Dalamud.Networking.Http;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
+using Karaoke.Font;
 using Karaoke.Services;
 using Karaoke.Windows;
 using Microsoft.Extensions.DependencyInjection;
@@ -72,7 +74,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
                         ConnectCallback = sp.GetService<HappyEyeballsCallback>()!.ConnectCallback
                     }
                 ));
-                
+                collection.AddSingleton<FileDialogManager>();
                 collection.AddSingleton<Window>(provider => provider.GetRequiredService<ConfigWindow>());
                 collection.AddSingleton<Window>(provider => provider.GetRequiredService<DebugWindow>());
                 collection.AddSingleton<Window>(provider => provider.GetRequiredService<LyricPlayerWindow>());

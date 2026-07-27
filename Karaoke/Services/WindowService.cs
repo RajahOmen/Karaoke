@@ -1,3 +1,4 @@
+using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Microsoft.Extensions.Hosting;
@@ -10,9 +11,12 @@ namespace Karaoke.Services;
 public class WindowService(
     IDalamudPluginInterface pluginInterface,
     IEnumerable<Window> pluginWindows,
-    WindowSystem windowSystem
+    WindowSystem windowSystem,
+    FileDialogManager fileDialogManager
     ) : IHostedService
 {
+    private readonly FileDialogManager fileDialogManager = fileDialogManager;
+
     public IDalamudPluginInterface PluginInterface { get; } = pluginInterface;
     public IEnumerable<Window> PluginWindows { get; } = pluginWindows;
     public WindowSystem WindowSystem { get; } = windowSystem;
@@ -33,6 +37,7 @@ public class WindowService(
     private void UiBuilderOnDraw()
     {
         WindowSystem.Draw();
+        fileDialogManager.Draw();
     }
 
     public Task StopAsync(CancellationToken cancellationToken)

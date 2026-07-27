@@ -30,4 +30,11 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
   </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Font\AtkinsonHyperlegible-Regular.ttf" />
+    <EmbeddedResource Include="Font\OpenDyslexic3-Regular.ttf" />
+    <EmbeddedResource Include="Font\ComicRelief-Regular.ttf" />
+    <EmbeddedResource Include="Font\VCR_OSD_MONO_1.001.ttf" />
+  </ItemGroup>
 </Project>

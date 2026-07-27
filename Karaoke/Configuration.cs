@@ -1,6 +1,7 @@
 using Dalamud.Configuration;
 using Dalamud.Interface.GameFonts;
 using Dalamud.Plugin;
+using Karaoke.Font;
 using System;
 using System.Collections.Generic;
 
@@ -18,7 +19,8 @@ public class Configuration : IPluginConfiguration
     public bool DisplayLyricInToast { get; set; } = false;
     public bool DisplayLyricInFlyText { get; set; } = false;
     public float? LyricFontSize { get; set; } = null;
-    public GameFontFamily? LyricFont { get; set; } = null;
+    public FontType? LyricFont { get; set; } = FontType.DalamudDefault;
+    public string? CustomLyricFontPath { get; set; } = null;
     public uint NumLyricsBehind { get; set; } = 1;
     public uint NumLyricsAhead { get; set; } = 1;
     public OpenWindowOn OpenWindowOn { get; set; } = OpenWindowOn.SongChangeLyrics;
