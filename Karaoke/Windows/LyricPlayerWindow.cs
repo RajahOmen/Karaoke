@@ -8,6 +8,7 @@ using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
+using Karaoke.Font;
 using Karaoke.Services;
 using System;
 using System.Collections.Generic;
