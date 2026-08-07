@@ -44,7 +44,7 @@ public class LyricPlayerWindow : Window, IDisposable
     {
         Flags = ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
                 ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.NoFocusOnAppearing;
-
+        
         if (configuration.LyricWindowNoTitleBar)
         {
             Flags |= ImGuiWindowFlags.NoTitleBar;
@@ -204,6 +204,7 @@ public class LyricPlayerWindow : Window, IDisposable
         var prevLyricIdx = song.GetNextLyricIdx(
             curLyricIdx, reverse: true, wrapTimeAllowance: remainingTime
         );
+
         float emptyTime;
         if (prevLyricIdx < 0)
             emptyTime = curLyric?.StartTime ?? 0;

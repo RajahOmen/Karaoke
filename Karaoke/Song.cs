@@ -305,33 +305,19 @@ public class Song(
         if (Lyrics?.Length is int lyricLen && lyricIdx == lyricLen)
             return reverse ? lyricLen - 1 : -1;
 
-        // wrap back to end of song if configured to do so
-        if (lyricIdx == LoopLyricIdx && reverse)
+        // moving backwards
+        if (reverse)
         {
-            var lyric = Lyrics![^1];
-            if (lyric.Duration + lyric.TimeUntilNext <= wrapTimeAllowance)
+            // only loop if time allows it
+            if (lyricIdx == LoopLyricIdx && wrapTimeAllowance >= Duration)
                 return Lyrics!.Length - 1;
 
-            return -1;
+            return lyricIdx - 1;
         }
 
         // wrap to start of loop if at end of lyrics
-        if (lyricIdx == Lyrics?.Length - 1 && !reverse)
+        if (lyricIdx == Lyrics?.Length - 1)
             return LoopLyricIdx;
-
-        // only back up if there is enough time allowance to do so
-        if (reverse)
-        {
-            // can't go back any farther
-            if (lyricIdx == 0)
-                return -1;
-
-            var lyric = Lyrics![lyricIdx - 1];
-            if (lyric.Duration + lyric.TimeUntilNext <= wrapTimeAllowance)
-                return lyricIdx - 1;
-
-            return -1;
-        }
 
         // only case left is next lyric in sequence
         return lyricIdx + 1;
