@@ -16,6 +16,7 @@ public class Configuration : IPluginConfiguration
     public DtrBarLyricDisplayType DtrBarLyricDisplayMode { get; set; } = DtrBarLyricDisplayType.LineHighlightSweep;
     public ushort DtrBarTextColor { get; set; } = 518;
     public ushort DtrBarGlowColor { get; set; } = 19;
+    public float DtrBarPreviewLength { get; set; } = 0.75f;
     public bool DisplayLyricInToast { get; set; } = false;
     public bool DisplayLyricInFlyText { get; set; } = false;
     public float? LyricFontSize { get; set; } = null;

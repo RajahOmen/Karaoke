@@ -675,6 +675,17 @@ public class ConfigWindow : Window, IDisposable
         drawDtrBarCombo();
         ImGui.Spacing();
 
+        var previewLength = configuration.DtrBarPreviewLength;
+        if (ImGui.SliderFloat("Preview time (s)", ref previewLength, 0.1f, 5f, "%.1fs"))
+        {
+            configuration.DtrBarPreviewLength = previewLength;
+            configuration.Save();
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("How early can a lyric line appear before it is sung (if an earlier line is not in progress)");
+
+        ImGui.Spacing();
+
         var usesHighlightColor = (
             configuration.DtrBarLyricDisplayMode == DtrBarLyricDisplayType.LineHighlightWord
             || configuration.DtrBarLyricDisplayMode == DtrBarLyricDisplayType.LineHighlightSweep

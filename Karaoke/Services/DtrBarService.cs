@@ -124,7 +124,10 @@ public class DtrBarService(
 
         if (bgmService.CurrentSong is { Lyrics.Length: > 0 } song)
         {
-            var lyricIdx = song.GetLatestActiveLyricIdxAtTime(bgmService.CurrentLyricTime);
+            var lyricIdx = song.GetLatestActiveLyricIdxAtTime(
+                bgmService.CurrentLyricTime,
+                configuration.DtrBarPreviewLength
+            );
             if (lyricIdx < 0 || lyricIdx >= song.Lyrics.Length)
                 return null;
 

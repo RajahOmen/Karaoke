@@ -246,7 +246,7 @@ public class Song(
         return getLyricIdxAtTime(time) ?? -1;
     }
 
-    public int GetLatestActiveLyricIdxAtTime(float time)
+    public int GetLatestActiveLyricIdxAtTime(float time, float maxPreviewTime = 0)
     {
         if (Lyrics is null || Lyrics.Length == 0)
             return -1;
@@ -268,23 +268,28 @@ public class Song(
         var lo = 0;
         var hi = Lyrics.Length - 1;
         var result = -1;
+        var prevResult = -1;
 
         while (lo <= hi)
         {
             var mid = (lo + hi) / 2;
-            if (Lyrics[mid].StartTime <= time)
+            var lyric = Lyrics[mid];
+            if (lyric.StartTime <= time)
             {
-                if (Lyrics[mid].EndTime >= time)
+                if (lyric.EndTime >= time)
                     result = mid;
                 lo = mid + 1; // keep searching for later match
             }
             else
             {
+                if (lyric.StartTime - maxPreviewTime <= time && lyric.EndTime >= time)
+                    prevResult = mid;
+                    
                 hi = mid - 1;
             }
         }
 
-        return result;
+        return result >= 0 ? result : prevResult;
     }
 
     public int GetNextLyricIdx(
