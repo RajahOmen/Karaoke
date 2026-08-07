@@ -236,7 +236,11 @@ public class LyricPlayerWindow : Window, IDisposable
             }
         }
 
-        if ((curLyric?.TimeUntilNext ?? 0) > thresh && ahead > 0)
+        if (
+            (curLyric?.TimeUntilNext ?? 0) > thresh
+            && ahead > 0
+            && aheadIdxStart < lyricIdxs.Length
+        )
         {
             lyricIdxs[aheadIdxStart] = MUSIC_LINE_IDX;
             aheadIdxStart++;
