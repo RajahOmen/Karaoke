@@ -155,7 +155,7 @@ public class ConfigWindow : Window, IDisposable
             if (ImGui.Selectable(text, dtrMode == value))
             {
                 configuration.DtrBarLyricDisplayMode = value;
-                dtrBarService.ClearCache();
+                dtrBarService.ScheduleRefresh();
                 configuration.Save();
             }
             if (ImGui.IsItemHovered())
@@ -353,7 +353,7 @@ public class ConfigWindow : Window, IDisposable
         ))
         {
             configuration.DtrBarGlowColor = glowColorId;
-            dtrBarService.ClearCache();
+            dtrBarService.ScheduleRefresh();
             configuration.Save();
         }
     }

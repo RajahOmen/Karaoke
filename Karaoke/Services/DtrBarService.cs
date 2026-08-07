@@ -31,6 +31,7 @@ public class DtrBarService(
 
     private LyricLine? currentLyric = null;
     private int curSegmentIdx = -1;
+    private bool forceRedraw = false;
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
@@ -47,10 +48,11 @@ public class DtrBarService(
         return Task.CompletedTask;
     }
 
-    public void ClearCache()
+    public void ScheduleRefresh()
     {
         currentLyric = null;
         curSegmentIdx = -1;
+        forceRedraw = true;
     }
 
     private void onFrameworkUpdate(IFramework framework)
@@ -58,9 +60,9 @@ public class DtrBarService(
         if (dtrBarEntry is null)
             return;
 
-        if (!updateCurrentLyric())
+        if (!updateCurrentLyric() && !forceRedraw)
             return;
-        
+        forceRedraw = false;
 
         if (currentLyric is LyricLine lyric)
         {
