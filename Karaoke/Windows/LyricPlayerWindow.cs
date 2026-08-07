@@ -43,7 +43,7 @@ public class LyricPlayerWindow : Window, IDisposable
     ) : base("Karaoke###karaoke_lyric_player")
     {
         Flags = ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
-                ImGuiWindowFlags.NoScrollWithMouse;
+                ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.NoFocusOnAppearing;
 
         if (configuration.LyricWindowNoTitleBar)
         {
