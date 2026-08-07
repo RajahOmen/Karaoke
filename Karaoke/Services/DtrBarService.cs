@@ -3,9 +3,6 @@ using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Plugin.Services;
 using Karaoke.Windows;
 using Microsoft.Extensions.Hosting;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -105,8 +102,12 @@ public class DtrBarService(
                 builder.AddText($"{lyric.Text[endIdx..]}\"");
             }
 
+            var tooltip = lyric.TranslatedText is string translated
+                ? $"[Karaoke] Translation:\n{lyric.TranslatedText}"
+                : "[Karaoke]";
+                
             dtrBarEntry.Text = builder.Build();
-            dtrBarEntry.Tooltip = $"[Karaoke] {lyric.TranslatedText}".Trim();
+            dtrBarEntry.Tooltip = tooltip;
         }
         else
         {
