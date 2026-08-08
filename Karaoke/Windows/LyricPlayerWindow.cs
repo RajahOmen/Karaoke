@@ -29,6 +29,7 @@ public class LyricPlayerWindow : Window, IDisposable
     private const int DefaultWidth = 300;
     private const int MinBufferWidth = 40;
     private bool resizeQueued = true;
+    private float widthChange = 0;
     private ImRaii.ColorDisposable? borderColor = null;
 
     // We give this window a constant ID using ###
@@ -181,7 +182,9 @@ public class LyricPlayerWindow : Window, IDisposable
         foreach (var lyric in song.Lyrics ?? [])
             maxLength = Math.Max(maxLength, ImGui.CalcTextSize(lyric.Text).X + MinBufferWidth);
 
-        Size = new Vector2(maxLength / ImGuiHelpers.GlobalScale, 0);
+        var unscaledLen = maxLength / ImGuiHelpers.GlobalScale;
+        widthChange = unscaledLen - (Size?.X ?? unscaledLen);
+        Size = new Vector2(unscaledLen, 0);
     }
 
     public override void PostDraw()
@@ -560,8 +563,29 @@ public class LyricPlayerWindow : Window, IDisposable
         }
     }
 
+    private void adjustResizePosition()
+    {
+        if (widthChange == 0)
+            return;
+
+        var scaledChange = widthChange * ImGuiHelpers.GlobalScale;
+        widthChange = 0;
+
+        var viewport = ImGui.GetMainViewport();
+        var windowPos = ImGui.GetWindowPos();
+
+        var screenMiddle = viewport.WorkPos.X + (viewport.WorkSize.X / 2);
+        var windowMiddle = windowPos.X + (ImGui.GetWindowSize().X / 2);
+
+        // default behavior already grows left edge, so only need to change right edge behavior
+        if (windowMiddle > screenMiddle)
+            ImGui.SetWindowPos(windowPos with { X = windowPos.X - scaledChange });
+    }
+
     public override void Draw()
     {
+        adjustResizePosition();
+        
         if (!configuration.ShowSongName && !configuration.ShowSongTime && !configuration.ShowLyrics)
         {
             ImGui.NewLine();
