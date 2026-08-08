@@ -500,7 +500,7 @@ public class ConfigWindow : Window, IDisposable
             configuration.Save();
         }
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Changes the background transparency of the lyric player window\nRight click to set to default dalamud window transparency");
+            ImGui.SetTooltip("Changes the background and border transparency of the lyric player window\nRight click to set to default dalamud window transparency");
 
         var titleBar = !configuration.LyricWindowNoTitleBar;
         if (ImGui.Checkbox($"Window Title Bar", ref titleBar))

@@ -29,6 +29,7 @@ public class LyricPlayerWindow : Window, IDisposable
     private const int DefaultWidth = 300;
     private const int MinBufferWidth = 40;
     private bool resizeQueued = true;
+    private ImRaii.ColorDisposable? borderColor = null;
 
     // We give this window a constant ID using ###
     // This allows for labels being dynamic, like "{FPS Counter}fps###XYZ counter window",
@@ -147,6 +148,23 @@ public class LyricPlayerWindow : Window, IDisposable
     }
 
     public override void PreDraw() {
+
+        // modify border opacity if override value set in config
+        if (configuration.LyricWindowBackgroundOpacity is float bgOpacity)
+        {
+            unsafe
+            {
+                var opacityRatio = bgOpacity / ImGui.GetStyleColorVec4(ImGuiCol.WindowBg)->W;
+                // only set if should decrease opacity
+                if (opacityRatio < 1)
+                {
+                    var borderCol = *ImGui.GetStyleColorVec4(ImGuiCol.Border);
+                    borderCol = borderCol with { W = borderCol.W * opacityRatio };
+                    borderColor ??= ImRaii.PushColor(ImGuiCol.Border, borderCol);
+                }
+            }
+        }
+
         if (!resizeQueued)
             return;
 
@@ -164,6 +182,12 @@ public class LyricPlayerWindow : Window, IDisposable
             maxLength = Math.Max(maxLength, ImGui.CalcTextSize(lyric.Text).X + MinBufferWidth);
 
         Size = new Vector2(maxLength / ImGuiHelpers.GlobalScale, 0);
+    }
+
+    public override void PostDraw()
+    {
+        borderColor?.Dispose();
+        borderColor = null;
     }
 
     private const int MUSIC_LINE_IDX = -2;
