@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace Karaoke;
@@ -11,8 +12,8 @@ public static partial class Util
         if (!match.Success)
             throw new FormatException($"Invalid format: '{timeStr}'. Expected MM:SS.X[XXX]");
 
-        var minutes = int.Parse(match.Groups[1].Value);
-        var seconds = float.Parse(match.Groups[2].Value);
+        var minutes = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+        var seconds = float.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
         return (minutes * 60) + seconds;
     }
 
@@ -39,7 +40,9 @@ public static partial class Util
             .TrimEnd('0')
             .PadRight(decPlaces, '0');
 
-        return $"{mins}:{fullSecs:00}.{decSecsStr}";
+        // ensure appropriate separator is used (i.e. '.', ',') for decimals
+        var decSep = CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+        return $"{mins}:{fullSecs:00}{decSep}{decSecsStr}";
     }
 
     [GeneratedRegex(@"(\d{1,2}):(\d{2}\.\d{1,5})$")]

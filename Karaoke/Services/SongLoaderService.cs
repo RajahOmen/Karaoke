@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -437,7 +438,7 @@ public partial class SongLoaderService(
     {
         var direction = offsetStr.StartsWith('-')
             ? -1 : 1;
-        var seconds = float.Parse(offsetStr.TrimStart('+', '-'));
+        var seconds = float.Parse(offsetStr.TrimStart('+', '-'), CultureInfo.InvariantCulture);
         return seconds * direction;
     }
 
