@@ -78,6 +78,7 @@ public static class Components
         float startWidth,
         float progressStart,
         float progressWidth,
+        Configuration configuration,
         bool debugMode = false
     )
     {
@@ -85,8 +86,8 @@ public static class Components
         ImGui.SetCursorPosX(startWidth);
         var cursorPos = ImGui.GetCursorPos();
         var screenPos = ImGui.GetCursorScreenPos();
-        var style = StyleModelV1.GetFromCurrent();
-        var red = ImGui.GetColorU32(style.BuiltInColors?.DalamudRed ?? Vector4.Zero);
+        var style = StyleModel.GetFromCurrent();
+        var red = ImGui.GetColorU32(configuration.GetLyricColor(LyricColor.Highlight));
         var redThin = ImGui.GetColorU32((style.BuiltInColors?.DalamudRed ?? Vector4.Zero) with { W = 0.25f });
         var drawList = ImGui.GetWindowDrawList();
 
@@ -140,6 +141,7 @@ public static class Components
         float currentTime,
         float startTime,
         float endTime,
+        Configuration configuration,
         bool debugMode = false,
         HighlightLyricType highlightProgress = HighlightLyricType.None
     )
@@ -165,6 +167,7 @@ public static class Components
             textStartWidth,
             progressStart: 0f,
             progressWidth,
+            configuration,
             debugMode
         );
     }
@@ -174,6 +177,7 @@ public static class Components
         float currentTime,
         LyricLine currentLine,
         IPluginLog log,
+        Configuration configuration,
         bool debugMode = false,
         HighlightLyricType highlightProgress = HighlightLyricType.None
     )
@@ -192,7 +196,7 @@ public static class Components
 
         var segIdx = currentLine.GetSegmentIdxAtTime(currentTime);
 
-        var style = StyleModelV1.GetFromCurrent();
+        var style = StyleModel.GetFromCurrent();
         var drawList = ImGui.GetWindowDrawList();
 
         var screenPos = ImGui.GetCursorScreenPos();
@@ -219,8 +223,8 @@ public static class Components
         if (debugMode)
         {
             var grey = ImGui.GetColorU32((style.BuiltInColors?.DalamudGrey2 ?? Vector4.Zero) with { W = 0.5f });
-            drawList.AddRectFilled(screenPos + new Vector2(alreadyDrawnSize.X, 0), screenPos + new Vector2(progressWidth, textSize.Y), grey);
-            drawList.AddRect(screenPos + new Vector2(alreadyDrawnSize.X, 0), screenPos + new Vector2(alreadyDrawnSize.X + segmentSize.X, textSize.Y), grey);
+            drawList.AddRectFilled(screenPos + alreadyDrawnSize with { Y = 0 }, screenPos + textSize with { X = progressWidth }, grey);
+            drawList.AddRect(screenPos + alreadyDrawnSize with { Y = 0 }, screenPos + textSize with { X = alreadyDrawnSize.X + segmentSize.X }, grey);
             //log.Verbose($"[{progressWidth}] [{textSize.X}] [{alreadyDrawnSize.X}] [{segmentSize.X}] [{segmentProgress:F2}] [{alreadyDrawnText}] [{segmentText}]");
         }
 
@@ -234,6 +238,7 @@ public static class Components
             textStartWidth,
             progressStart,
             progressWidth,
+            configuration,
             debugMode
         );
     }

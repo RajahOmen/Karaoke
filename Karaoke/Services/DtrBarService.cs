@@ -5,6 +5,8 @@ using Karaoke.Windows;
 using Microsoft.Extensions.Hosting;
 using System.Threading;
 using System.Threading.Tasks;
+using Dalamud.Utility;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 
 namespace Karaoke.Services;
 
@@ -52,9 +54,17 @@ public class DtrBarService(
         forceRedraw = true;
     }
 
-    private void onFrameworkUpdate(IFramework framework)
+    private unsafe void onFrameworkUpdate(IFramework framework)
     {
         if (dtrBarEntry is null)
+            return;
+
+        var atkStage = AtkStage.Instance();
+        if (atkStage == null)
+            return;
+        
+        var colorHolder = atkStage->AtkUIColorHolder;
+        if (colorHolder == null)
             return;
 
         if (!updateCurrentLyric() && !forceRedraw)
@@ -63,8 +73,6 @@ public class DtrBarService(
 
         if (currentLyric is LyricLine lyric)
         {
-            var builder = new SeStringBuilder();
-
             var startIdx = 0;
             var endIdx = 0;
 
@@ -78,35 +86,43 @@ public class DtrBarService(
                     _ => 0
                 };
             }
+            
+            using var builder = new RentedSeStringBuilder();
+            var textColorRgba = colorHolder->GetColor(true, configuration.DtrBarTextColor);
+            var glowColorRgba = colorHolder->GetColor(true, configuration.DtrBarGlowColor);
 
             if (startIdx > 0 || endIdx == 0)
-                builder.AddText($"\"{lyric.Text[..startIdx]}");
+            {
+                builder.Append('"');
+                builder.Append(lyric.Text[..startIdx]);
+            }
 
-            builder.AddUiForeground(configuration.DtrBarTextColor);
-            builder.AddUiGlow(configuration.DtrBarGlowColor);
+            builder.PushColorRgba(textColorRgba);
+            builder.PushEdgeColorRgba(glowColorRgba);
 
             if (startIdx == 0 && endIdx > 0)
-                builder.AddText("\"");
-            builder.AddText(lyric.Text[startIdx..endIdx]);
+                builder.Append('"');
+            builder.Append(lyric.Text[startIdx..endIdx]);
 
             if (curSegmentIdx >= lyric.Segments.Length - 2)
             {
-                builder.AddText("\"");
-                builder.AddUiForegroundOff();
-                builder.AddUiGlowOff();
+                builder.Append('"');
+                builder.PopColor();
+                builder.PopEdgeColor();
             }
             else
             {
-                builder.AddUiForegroundOff();
-                builder.AddUiGlowOff();
-                builder.AddText($"{lyric.Text[endIdx..]}\"");
+                builder.PopColor();
+                builder.PopEdgeColor();
+                builder.Append(lyric.Text[endIdx..]);
+                builder.Append('"');
             }
 
-            var tooltip = lyric.TranslatedText is string translated
+            var tooltip = lyric.TranslatedText is not null
                 ? $"[Karaoke] Translation:\n{lyric.TranslatedText}"
                 : "[Karaoke]";
-                
-            dtrBarEntry.Text = builder.Build();
+
+            dtrBarEntry.Text = builder.ToReadOnlySeString().ToDalamudString();
             dtrBarEntry.Tooltip = tooltip;
         }
         else
