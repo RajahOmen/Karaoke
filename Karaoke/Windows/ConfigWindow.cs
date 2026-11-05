@@ -11,7 +11,6 @@ using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Graphics;
-using FFXIVClientStructs.FFXIV.Common.Component.Excel;
 using Karaoke.Font;
 using Karaoke.Services;
 using Lumina.Excel;
@@ -21,9 +20,9 @@ using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Numerics;
 using System.Text;
+using Action = System.Action;
 
 namespace Karaoke.Windows;
 
@@ -74,6 +73,15 @@ public class ConfigWindow : Window, IDisposable
         { FontType.Custom, "Custom (Imported)" }
     }.ToFrozenDictionary();
 
+    private static readonly FrozenDictionary<LyricColor, (string Title, string Tooltip)> LyricColorNames = new Dictionary<LyricColor, (string, string)>
+    {
+        { LyricColor.Highlight, ("Highlight Color", "Color of the highlight (as set above in 'Highlight Lyric')\nDefault: Current Dalamud style DalamudRed color") },
+        { LyricColor.ActiveLine, ("Active Line Color", "Color of lyric lines being sung / about to be sung\nDefault: Current Dalamud style Text color") },
+        { LyricColor.InactiveLine, ("Inactive Line Color", "Color of lyric lines already finished or yet to be sung\nDefault: Current Dalamud style DalamudGrey2 color") },
+    }.ToFrozenDictionary();
+    
+    private readonly IReadOnlyList<(string tabId, Action drawTab)> tabs;
+
     public ConfigWindow(
         IPluginLog pluginLog,
         IDalamudPluginInterface pluginInterface,
@@ -87,10 +95,8 @@ public class ConfigWindow : Window, IDisposable
         FileDialogManager fileDialogManager
     ) : base("Karaoke Config###karaoke_configuration_window")
     {
-        Flags = ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
-                ImGuiWindowFlags.NoScrollWithMouse;
-
-        Size = new Vector2(400, 0);
+        Flags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
+        Size = new Vector2(400, 400);
         SizeCondition = ImGuiCond.Appearing;
         this.pluginLog = pluginLog;
         this.pluginInterface = pluginInterface;
@@ -103,6 +109,11 @@ public class ConfigWindow : Window, IDisposable
         this.gameConfig = gameConfig;
         this.fileDialogManager = fileDialogManager;
         this.colorSheet = dataManager.GetExcelSheet<UIColor>();
+        this.tabs = [
+            ("Lyric Window##karaoke-lyric-window-settings-tab", drawGeneralTab),
+            ("Server Info Bar##karaoke-server-info-bar-settings-tab", drawServerInfoTab),
+            ("Other##karaoke-misc-settings-tab", drawMiscTab)
+        ];
     }
     private readonly ExcelSheet<UIColor> colorSheet;
 
@@ -272,7 +283,7 @@ public class ConfigWindow : Window, IDisposable
                     ImGui.TableNextColumn();
 
                     var rowId = colorSheet.GetRowAt(i).RowId;
-                    var isSelected = isTextColor ? rowId == textColorId : rowId == textColorId;
+                    var isSelected = isTextColor ? rowId == textColorId : rowId == glowColorId;
 
                     var pos = ImGui.GetCursorScreenPos();
                     drawList.AddRectFilled(pos, pos + buttonSize, fmtColorVal(getColorValOrDefault(rowId, 0)));
@@ -470,9 +481,9 @@ public class ConfigWindow : Window, IDisposable
             ImGui.SetTooltip("Add a custom font file to use for lyrics");
     }
 
-    public override void Draw()
+    private void drawGeneralTab()
     {
-        ImGui.Text("Lyric Window General");
+        ImGui.Text("General");
 
         ImGui.Spacing();
         drawOpenConditionCombo();
@@ -523,7 +534,7 @@ public class ConfigWindow : Window, IDisposable
         ImGui.Separator();
         ImGui.Spacing();
 
-        ImGui.Text("Lyric Window Customization");
+        ImGui.Text("Customization");
         ImGui.Spacing();
 
         var showSongName = configuration.ShowSongName;
@@ -564,23 +575,31 @@ public class ConfigWindow : Window, IDisposable
         }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Display time-synced lyrics to playing song, if available");
-
-        var emphasizeCurrent = configuration.EmphasizeCurrentLine;
-        using (ImRaii.Disabled(!showLyrics))
-        {
-            if (ImGui.Checkbox($"Emphasize current lyric line", ref emphasizeCurrent))
-            {
-                configuration.EmphasizeCurrentLine = emphasizeCurrent;
-                configuration.Save();
-            }
-        }
-        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-            ImGui.SetTooltip("Whether lyric lines ahead/behind of the current playing line should darkened slightly");
-
+        
         drawHighlightLyricCombo();
-
+        
         using (ImRaii.Disabled(!showLyrics))
         {
+            foreach (var (colorType, (colorTitle, colorTooltip)) in LyricColorNames)
+            {
+                var color = configuration.GetLyricColor(colorType);
+                if (ImGui.ColorEdit4($"{colorTitle}##karaoke-lyric-color-picker", ref color, ImGuiColorEditFlags.NoOptions))
+                {
+                    configuration.SetLyricColor(colorType, color);
+                    configuration.Save();
+                }
+
+                if (ImGui.IsItemHovered())
+                {
+                    ImGui.SetTooltip($"{colorTooltip}\nRight click to reset to default");
+                }
+                if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+                {
+                    configuration.SetLyricColor(colorType, null);
+                    configuration.Save();
+                }
+            }
+            
             var fontSize = configuration.LyricFontSize ?? UiBuilder.DefaultFontSizePt;
             if (ImGui.InputFloat($"Lyrics Font Size", ref fontSize, 2, 4, "%.0f"))
             {
@@ -602,7 +621,7 @@ public class ConfigWindow : Window, IDisposable
         ImGui.Separator();
         ImGui.Spacing();
 
-        ImGui.Text("Lyric Window Playback");
+        ImGui.Text("Playback");
 
         using (ImRaii.Disabled(!showLyrics))
         {
@@ -664,14 +683,11 @@ public class ConfigWindow : Window, IDisposable
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip("Sets the appearance of a music line insert");
         }
+    }
 
+    private void drawServerInfoTab()
+    {
         ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        ImGui.Text("Server Info Bar Lyrics");
-        ImGui.Spacing();
-
         drawDtrBarCombo();
         ImGui.Spacing();
 
@@ -697,10 +713,11 @@ public class ConfigWindow : Window, IDisposable
                 drawDtrColorSelector();
         }
 
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
 
+    }
+
+    private void drawMiscTab()
+    {
         ImGui.Text("Other Lyric Display Options");
         ImGui.Spacing();
 
@@ -721,12 +738,9 @@ public class ConfigWindow : Window, IDisposable
         }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("If lyrics should pop up as fly text");
-
+        
         ImGui.Spacing();
         ImGui.Separator();
-        ImGui.Spacing();
-
-        ImGui.Text("Miscellaneous");
         ImGui.Spacing();
 
         using (ImRaii.Disabled(bgmService.ReloadingCurrentSongLyrics))
@@ -764,5 +778,24 @@ public class ConfigWindow : Window, IDisposable
         }
 
         ImGui.Spacing();
+    }
+    
+    public override void Draw()
+    {
+        using var tabBar = ImRaii.TabBar("###karaoke-settings-tabs");
+        if (!tabBar)
+            return;
+
+        foreach (var (tabId, drawTab) in tabs)
+        {
+            using var tabItem = ImRaii.TabItem(tabId);
+            if (tabItem)
+            {
+                using (ImRaii.Child("###karaoke-settings-tab-child-content"))
+                {
+                    drawTab();
+                }
+            }
+        }
     }
 }

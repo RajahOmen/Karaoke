@@ -29,8 +29,9 @@ public class LyricPlayerWindow : Window, IDisposable
     private const int DefaultWidth = 300;
     private const int MinBufferWidth = 40;
     private bool resizeQueued = true;
-    private float widthChange = 0;
     private ImRaii.ColorDisposable? borderColor = null;
+    private Vector2 lastTrackedPos = Vector2.Zero;
+    private Vector2 lastSize = Vector2.Zero;
 
     // We give this window a constant ID using ###
     // This allows for labels being dynamic, like "{FPS Counter}fps###XYZ counter window",
@@ -69,6 +70,15 @@ public class LyricPlayerWindow : Window, IDisposable
         this.bgmService.OnSongChange += handleOnSongChange;
         this.songLoaderService.OnLyricLoad += handleOnLyricLoad;
         this.fontManager.OnFontChange += handleOnFontChange;
+    }
+
+    private Vector2 getTrackedPos()
+    {
+        var pos = ImGui.GetWindowPos();
+        if (configuration.LyricWindowRightJustified)
+            pos.X += ImGui.GetWindowSize().X;
+
+        return pos;
     }
 
     public void Dispose()
@@ -147,8 +157,9 @@ public class LyricPlayerWindow : Window, IDisposable
             pluginLog.Debug($"handleOnSongChange: {prevState} => {IsOpen}. [{OpenedManually}][{bgmService.CurrentSong}]");
         }
     }
-
-    public override void PreDraw() {
+    
+    public override void PreDraw()
+    {
 
         // modify border opacity if override value set in config
         if (configuration.LyricWindowBackgroundOpacity is float bgOpacity)
@@ -181,10 +192,10 @@ public class LyricPlayerWindow : Window, IDisposable
         using var _ = fontManager.LyricFont.Push();
         foreach (var lyric in song.Lyrics ?? [])
             maxLength = Math.Max(maxLength, ImGui.CalcTextSize(lyric.Text).X + MinBufferWidth);
-
-        var unscaledLen = maxLength / ImGuiHelpers.GlobalScale;
-        widthChange = unscaledLen - (Size?.X ?? unscaledLen);
-        Size = new Vector2(unscaledLen, 0);
+        
+        if (configuration.LyricWindowRightJustified)
+            Position = lastTrackedPos with { X = lastTrackedPos.X - maxLength };
+        Size = new Vector2(maxLength / ImGuiHelpers.GlobalScale, 0);
     }
 
     public override void PostDraw()
@@ -322,8 +333,10 @@ public class LyricPlayerWindow : Window, IDisposable
             }
         }
 
-        var disabledLineCol = ImGui.GetColorU32((StyleModelV1.GetFromCurrent().BuiltInColors?.DalamudGrey2 ?? Vector4.One) with { W = 1f });
+        var activeLineCol = ImGui.GetColorU32(configuration.GetLyricColor(LyricColor.ActiveLine));
+        var inactiveLineCol = ImGui.GetColorU32(configuration.GetLyricColor(LyricColor.InactiveLine));
 
+        using var activeColor = ImRaii.PushColor(ImGuiCol.Text, activeLineCol);
         for (var i = 0; i < lyricIdxs.Length; i++)
         {
             var lyricIdx = lyricIdxs[i];
@@ -355,6 +368,7 @@ public class LyricPlayerWindow : Window, IDisposable
                         lyricTime,
                         startTime,
                         endTime: curLyric?.StartTime ?? 0,
+                        configuration,
                         configuration.DebugMode,
                         configuration.HighlightLyrics
                         );
@@ -367,6 +381,7 @@ public class LyricPlayerWindow : Window, IDisposable
                         lyricTime,
                         lyric,
                         pluginLog,
+                        configuration,
                         configuration.DebugMode,
                         configuration.HighlightLyrics
                     );
@@ -384,7 +399,7 @@ public class LyricPlayerWindow : Window, IDisposable
                 {
                     if (lyricIdx == MUSIC_LINE_IDX)
                     {
-                        using (ImRaii.PushColor(ImGuiCol.Text, ImGui.GetColorU32(disabledLineCol), configuration.EmphasizeCurrentLine))
+                        using (ImRaii.PushColor(ImGuiCol.Text, ImGui.GetColorU32(inactiveLineCol)))
                             ImGuiHelpers.CenteredText(configuration.MusicLineInsert);
                     }
                     else
@@ -412,6 +427,7 @@ public class LyricPlayerWindow : Window, IDisposable
                             lyricTime,
                             lyric,
                             pluginLog,
+                            configuration,
                             configuration.DebugMode,
                             configuration.HighlightLyrics
                         );
@@ -419,7 +435,7 @@ public class LyricPlayerWindow : Window, IDisposable
                             ImGui.SetTooltip(translated);
                     }
                     else {
-                        using (ImRaii.PushColor(ImGuiCol.Text, ImGui.GetColorU32(disabledLineCol), configuration.EmphasizeCurrentLine))
+                        using (ImRaii.PushColor(ImGuiCol.Text, ImGui.GetColorU32(inactiveLineCol)))
                             ImGuiHelpers.CenteredText(lyric.ToDisplayString());
 
                         if (lyric.TranslatedText is string translated && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
@@ -565,28 +581,31 @@ public class LyricPlayerWindow : Window, IDisposable
 
     private void adjustResizePosition()
     {
-        if (widthChange == 0)
-            return;
+        var newTrackedPos = getTrackedPos();
+        if (!Equals(newTrackedPos, lastTrackedPos))
+        {
+            var viewport = ImGui.GetMainViewport();
+            var screenMiddle = viewport.WorkPos.X + (viewport.WorkSize.X / 2);
+            var windowMiddle = ImGui.GetWindowPos().X + (ImGui.GetWindowSize().X / 2);
 
-        var scaledChange = widthChange * ImGuiHelpers.GlobalScale;
-        widthChange = 0;
-
-        var viewport = ImGui.GetMainViewport();
-        var windowPos = ImGui.GetWindowPos();
-
-        var screenMiddle = viewport.WorkPos.X + (viewport.WorkSize.X / 2);
-        var windowMiddle = windowPos.X + (ImGui.GetWindowSize().X / 2);
-
-        // default behavior already grows left edge, so only need to change right edge behavior
-        if (windowMiddle > screenMiddle)
-            ImGui.SetWindowPos(windowPos with { X = windowPos.X - scaledChange });
+            var newGrowsLeft = windowMiddle > screenMiddle;
+            if (newGrowsLeft != configuration.LyricWindowRightJustified)
+            {
+                pluginLog.Debug($"Switching window behavior to {(newGrowsLeft ? "right" : "left")} justified");
+                configuration.LyricWindowRightJustified = newGrowsLeft;
+                configuration.Save();
+            }
+            lastTrackedPos = newTrackedPos;
+        }
+        lastSize = ImGui.GetWindowSize();
+        Position = null;
     }
 
     public override void Draw()
     {
         adjustResizePosition();
         
-        if (!configuration.ShowSongName && !configuration.ShowSongTime && !configuration.ShowLyrics)
+        if (configuration is { ShowSongName: false, ShowSongTime: false, ShowLyrics: false })
         {
             ImGui.NewLine();
             ImGuiHelpers.CenteredText("Toggle display options in config");
@@ -597,7 +616,7 @@ public class LyricPlayerWindow : Window, IDisposable
             return;
         }
 
-        if (bgmService.CurrentSong is Song song && bgmService.CurrentSongLoopData is not null)
+        if (bgmService is { CurrentSong: Song song, CurrentSongLoopData: not null })
         {
             drawSongHeader(song);
 
@@ -628,7 +647,7 @@ public class LyricPlayerWindow : Window, IDisposable
                 }
                 ImGui.Spacing();
             }
-            else if (!configuration.ShowSongName && !configuration.ShowSongTime && configuration.ShowLyrics)
+            else if (configuration is { ShowSongName: false, ShowSongTime: false, ShowLyrics: true })
             {
                 ImGui.NewLine();
                 ImGuiHelpers.CenteredText("No Lyrics Available");

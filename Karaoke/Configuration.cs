@@ -1,9 +1,11 @@
 using Dalamud.Configuration;
-using Dalamud.Interface.GameFonts;
 using Dalamud.Plugin;
 using Karaoke.Font;
 using System;
 using System.Collections.Generic;
+using System.Numerics;
+using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Style;
 
 namespace Karaoke;
 
@@ -19,6 +21,50 @@ public class Configuration : IPluginConfiguration
     public float DtrBarPreviewLength { get; set; } = 0.75f;
     public bool DisplayLyricInToast { get; set; } = false;
     public bool DisplayLyricInFlyText { get; set; } = false;
+    public bool LyricWindowRightJustified { get; set; } = false;
+
+    /// <summary>
+    /// Defaults to <see cref="Dalamud.Bindings.ImGui.ImGuiCol.Text"/> value for active Dalamud style.
+    /// </summary>
+    public Vector4? LyricActiveLineColor { get; set; } = null;
+    /// <summary>
+    /// Defaults to <see cref="Dalamud.Interface.Style.DalamudColors.DalamudGrey2"/> with full opacity.
+    /// </summary>
+    public Vector4? LyricInactiveLineColor { get; set; } = null;
+    /// <summary>
+    /// Defaults to <see cref="Dalamud.Interface.Style.DalamudColors.DalamudRed"/> with full opacity.
+    /// </summary>
+    public Vector4? LyricHighlightColor { get; set; } = null;
+
+    public Vector4 GetLyricColor(LyricColor type)
+    {
+        return type switch
+        {
+            LyricColor.ActiveLine => LyricActiveLineColor ?? ImGui.GetStyle().Colors[(int)ImGuiCol.Text] with { W = 1f },
+            LyricColor.InactiveLine => LyricInactiveLineColor ?? (StyleModel.GetFromCurrent().BuiltInColors?.DalamudGrey2 is { } grey2 ? grey2 with { W = 1f } : Vector4.One),
+            LyricColor.Highlight => LyricHighlightColor ?? (StyleModel.GetFromCurrent().BuiltInColors?.DalamudRed is { } grey2 ? grey2 with { W = 1f } : Vector4.One),
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+        };
+    }
+    
+    public void SetLyricColor(LyricColor type, Vector4? value)
+    {
+        switch (type)
+        {
+            case LyricColor.ActiveLine:
+                LyricActiveLineColor = value;
+                break;
+            case LyricColor.InactiveLine:
+                LyricInactiveLineColor = value;
+                break;
+            case LyricColor.Highlight:
+                LyricHighlightColor = value;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(type), type, null);
+        }
+    }
+    
     public float? LyricFontSize { get; set; } = null;
     public FontType? LyricFont { get; set; } = FontType.DalamudDefault;
     public string? CustomLyricFontPath { get; set; } = null;
@@ -32,7 +78,6 @@ public class Configuration : IPluginConfiguration
     public HighlightLyricType HighlightLyrics { get; set; } = HighlightLyricType.ProgressSweep;
     public bool LyricWindowNoTitleBar { get; set; } = false;
     public float? LyricWindowBackgroundOpacity { get; set; } = null;
-    public bool EmphasizeCurrentLine { get; set; } = true;
     public bool DebugMode { get; set; } = false;
 
     /// <summary>
@@ -70,4 +115,12 @@ public class Configuration : IPluginConfiguration
     {
         this.pluginInterface!.SavePluginConfig(this);
     }
+}
+
+
+public enum LyricColor
+{
+    ActiveLine,
+    InactiveLine,
+    Highlight
 }
