@@ -424,7 +424,7 @@ public class BGMService(
         pluginLog.Debug($"TrackDataCount: {scdFile.TrackDataCount}");
         pluginLog.Debug($"Layout: {dumpStruct(scdFile.GetLayout())}");
         pluginLog.Debug($"AttributeData: {dumpStruct(scdFile.GetAttributeData())}");
-        pluginLog.Debug("------SOUND-----");
+        pluginLog.Debug($"------SOUND[{soundNumber}]-----");
         pluginLog.Debug($"SoundBasicDesc:{dumpStruct<SoundBasicDesc>(sound.SoundBasicDesc)}");
         pluginLog.Debug($"speed: {soundData.Speed}");
         pluginLog.Debug($"getspeed: {soundData.GetSpeed()}");
@@ -435,7 +435,7 @@ public class BGMService(
         pluginLog.Debug($"BusDuckingInfo:{dumpStruct(sound.BusDuckingInfo)}");
         pluginLog.Debug($"RoutingInfo:{dumpStruct(sound.RoutingInfo)}");
         pluginLog.Debug($"SoundExtraDesc:{dumpStruct(sound.SoundExtraDesc)}");
-        pluginLog.Debug("------TRACK-----");
+        pluginLog.Debug($"------TRACK[{soundNumber}]-----");
         foreach (var (cmd, data) in tracks)
         {
             pluginLog.Debug($"cmd: {Enum.GetName(cmd)}, data [{data?.GetType()}]: {data}");
@@ -453,16 +453,14 @@ public class BGMService(
             }
         }
         pluginLog.Debug($"-----AUDIO[{soundNumber}]-----");
-        // broken for now
-        //var maybeAudio = scdFile.GetAudio(soundNumber);
-        //if (maybeAudio is not ScdFile.Audio audio)
-        //{
-        //    pluginLog.Debug($"audio data is null for sound number: {soundNumber}");
-        //}
-        //else
-        //{
-        //    pluginLog.Debug($"AudioBasicDesc:{dumpStruct<AudioBasicDesc>(audio.AudioBasicDesc)}");
-        //}
+        if (scdFile.GetAudio(soundNumber) is not { } audio)
+        {
+            pluginLog.Debug($"audio data is null for sound number: {soundNumber}");
+        }
+        else
+        {
+            pluginLog.Debug($"AudioBasicDesc:{dumpStruct<AudioBasicDesc>(audio.AudioBasicDesc)}");
+        }
         pluginLog.Debug($"==============================================================");
     }
 }
