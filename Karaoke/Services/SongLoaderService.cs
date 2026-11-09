@@ -33,7 +33,7 @@ public partial class SongLoaderService(
 
     private const string LyricRepoUrl = @"https://github.com/RajahOmen/karaoke-lyrics/archive/main.zip";
     private const string LyricRepoRootDir = @"karaoke-lyrics-main/";
-    private readonly string lyricsDirectory = $"{pluginInterface.ConfigDirectory}\\lyrics";
+    public readonly string LyricsDirectory = $"{pluginInterface.ConfigDirectory}\\lyrics";
     private readonly IPluginLog pluginLog = pluginLog;
     private readonly SongNameService songNameService = songNameService;
     private readonly HttpClient httpClient = httpClient;
@@ -211,8 +211,11 @@ public partial class SongLoaderService(
         {
             if (entry.FullName.EndsWith('/'))
                 continue;
+            // ignore 'hidden' folders (i.e. .github/)
+            if (entry.FullName.Replace(LyricRepoRootDir, "").StartsWith('.'))
+                continue;
             pluginLog.Verbose($"Loading repo file: {entry.FullName}");
-            var path = Path.Combine(lyricsDirectory, entry.FullName.Replace(LyricRepoRootDir, ""));
+            var path = Path.Combine(LyricsDirectory, entry.FullName.Replace(LyricRepoRootDir, ""));
             new FileInfo(path).Directory?.Create();
             extractTasks.Add(entry.ExtractToFileAsync(path, overwrite: true, cancellationToken: cancellationToken));
         }
@@ -239,7 +242,7 @@ public partial class SongLoaderService(
         await loadLyricsFromRepo(cancellationToken);
 
         var files = Directory.GetFiles(
-            lyricsDirectory,
+            LyricsDirectory,
             $"*{LyricFileExtension}",
             new EnumerationOptions() { RecurseSubdirectories = true }
         );
@@ -398,6 +401,7 @@ public partial class SongLoaderService(
     public Song GetSongById(
         uint songId,
         SongLoopData songLoopData,
+        string? songFileName = null,
         bool loadLyrics = true
     )
     {
@@ -406,6 +410,7 @@ public partial class SongLoaderService(
 
         var song = new Song(
             id: songId,
+            fileName: songFileName,
             name: songName,
             duration: songLoopData.TotalDurationMillis / 1000f,
             loopStart: songLoopData.LoopStartMillis / 1000f

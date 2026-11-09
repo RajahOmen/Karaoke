@@ -12,6 +12,8 @@ using Karaoke.Font;
 using Karaoke.Services;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using System.Numerics;
 
 namespace Karaoke.Windows;
@@ -24,6 +26,8 @@ public class LyricPlayerWindow : Window, IDisposable
     private readonly SongLoaderService songLoaderService;
     private readonly IDalamudPluginInterface pluginInterface;
     private readonly FontManager fontManager;
+    private readonly SongRequestIssueService songRequestIssueService;
+    private readonly IClientState clientState;
     public bool OpenedManually = false;
 
     private const int DefaultWidth = 300;
@@ -42,7 +46,8 @@ public class LyricPlayerWindow : Window, IDisposable
         BGMService bgmService,
         SongLoaderService songLoaderService,
         IDalamudPluginInterface pluginInterface,
-        FontManager fontManager
+        FontManager fontManager,
+        SongRequestIssueService songRequestIssueService
     ) : base("Karaoke###karaoke_lyric_player")
     {
         Flags = ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
@@ -67,6 +72,8 @@ public class LyricPlayerWindow : Window, IDisposable
         this.songLoaderService = songLoaderService;
         this.pluginInterface = pluginInterface;
         this.fontManager = fontManager;
+        this.songRequestIssueService = songRequestIssueService;
+        this.clientState = clientState;
         this.bgmService.OnSongChange += handleOnSongChange;
         this.songLoaderService.OnLyricLoad += handleOnLyricLoad;
         this.fontManager.OnFontChange += handleOnFontChange;
@@ -600,6 +607,43 @@ public class LyricPlayerWindow : Window, IDisposable
         lastSize = ImGui.GetWindowSize();
         Position = null;
     }
+    
+
+    private void drawNoLyricsAvailable()
+    {
+        ImGui.NewLine();
+        ImGuiHelpers.CenteredText("No Lyrics Available");
+        if (songRequestIssueService.CurrentSongRequestUri() is { Uri: { } issueUri, Issues: { } issues })
+        {
+            var hasExistingIssue = issues.Count > 0;
+            var tooltipText = hasExistingIssue
+                ? $"This song has pending song request issue(s) ({string.Join(", ", issues.Select(i => $"#{i}"))}), see:\n{issueUri}"
+                : $"Should the playing song have lyrics? Open a Github issue at {issueUri.GetLeftPart(UriPartial.Path)}";
+
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+            {
+                var buttonText = FontAwesomeIcon.ExternalLinkAlt.ToIconString();
+                var buttonWidth = ImGui.CalcTextSize(buttonText).X + (ImGui.GetStyle().ItemSpacing.X * 2);
+                ImGui.SetCursorPosX(ImGui.GetContentRegionMax().X - buttonWidth);
+                
+                using (ImRaii.PushStyle(ImGuiStyleVar.Alpha, 0.4f))
+                {
+                    if (ImGui.Button(buttonText))
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = issueUri.AbsoluteUri,
+                            UseShellExecute = true,
+                        });
+                    }
+                }
+            }
+            
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip(tooltipText);
+        }
+        ImGui.Spacing();
+    }
 
     public override void Draw()
     {
@@ -649,10 +693,7 @@ public class LyricPlayerWindow : Window, IDisposable
             }
             else if (configuration is { ShowSongName: false, ShowSongTime: false, ShowLyrics: true })
             {
-                ImGui.NewLine();
-                ImGuiHelpers.CenteredText("No Lyrics Available");
-                ImGui.NewLine();
-                ImGui.Spacing();
+                drawNoLyricsAvailable();
             }
         }
         else if (bgmService.LoadingSong)

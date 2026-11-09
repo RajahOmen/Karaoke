@@ -29,6 +29,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         IToastGui toastGui,
         IFlyTextGui flyTextGui,
         IGameConfig gameConfig,
+        IClientState clientState,
         IPluginLog pluginLog
         )
     {
@@ -52,6 +53,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
                 collection.AddSingleton(flyTextGui);
                 collection.AddSingleton(gameConfig);
                 collection.AddSingleton(pluginLog);
+                collection.AddSingleton(clientState);
                 collection.AddSingleton<WindowService>();
                 collection.AddSingleton<InstallerWindowService>();
                 collection.AddSingleton<CommandService>();
@@ -65,15 +67,21 @@ public sealed class Plugin : IAsyncDalamudPlugin
                 collection.AddSingleton<ToastService>();
                 collection.AddSingleton<FlyTextService>();
                 collection.AddSingleton<FontManager>();
+                collection.AddSingleton<SongRequestIssueService>();
 
                 // fetch from web
                 collection.AddSingleton<HappyEyeballsCallback>();
-                collection.AddSingleton(sp => new HttpClient(
-                    new SocketsHttpHandler
-                    {
-                        ConnectCallback = sp.GetService<HappyEyeballsCallback>()!.ConnectCallback
-                    }
-                ));
+                collection.AddSingleton(sp =>
+                {
+                    var client = new HttpClient(
+                        new SocketsHttpHandler
+                        {
+                            ConnectCallback = sp.GetService<HappyEyeballsCallback>()!.ConnectCallback
+                        }
+                    );
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("karaoke-plugin");
+                    return client;
+                });
                 collection.AddSingleton<FileDialogManager>();
                 collection.AddSingleton<Window>(provider => provider.GetRequiredService<ConfigWindow>());
                 collection.AddSingleton<Window>(provider => provider.GetRequiredService<DebugWindow>());
