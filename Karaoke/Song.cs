@@ -6,6 +6,7 @@ namespace Karaoke;
 
 public class Song(
     uint id,
+    string? fileName,
     string? name,
     float duration,
     float? loopStart,
@@ -28,6 +29,11 @@ public class Song(
     /// found for this song Id in the spreadsheet
     /// </summary>
     public string? Name { get; private set; } = name;
+
+    /// <summary>
+    /// The name/path of the song file
+    /// </summary>
+    public string? FileName { get; private set; } = fileName;
 
     /// <summary>
     /// How long the song is in game, in seconds.

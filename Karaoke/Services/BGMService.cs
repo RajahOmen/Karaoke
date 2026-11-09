@@ -124,7 +124,8 @@ public class BGMService(
                     var newSongLoopData = getSongLoopData(newSongSoundData.Value);
                     var song = songLoaderService.GetSongById(
                         newSongId,
-                        newSongLoopData
+                        newSongLoopData,
+                        songFileName: newSongSoundData.Value.GetFileName().ToString()
                     );
                     RawElapsedTime = newRawElapsedTime;
                     CurrentSong = song;
@@ -180,6 +181,7 @@ public class BGMService(
             CurrentSong = songLoaderService.GetSongById(
                 CurrentSong.Id,
                 currentLoopData,
+                songFileName: CurrentSong.FileName,
                 loadLyrics: false
             );
         }

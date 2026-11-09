@@ -19,7 +19,9 @@ using System;
 using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Numerics;
 using System.Text;
 using Action = System.Action;
@@ -38,6 +40,9 @@ public class ConfigWindow : Window, IDisposable
     private readonly IDataManager dataManager;
     private readonly IGameConfig gameConfig;
     private readonly FileDialogManager fileDialogManager;
+    private readonly SongLoaderService songLoaderService;
+    private readonly SongRequestIssueService songRequestIssueService;
+
     private static readonly FrozenDictionary<OpenWindowOn, (string Name, string Tooltip)> OpenWindowOnNames = new Dictionary<OpenWindowOn, (string Name, string Tooltip)>()
     {
         { OpenWindowOn.None, ("Never", "Never automatically open the lyric player window") },
@@ -92,7 +97,9 @@ public class ConfigWindow : Window, IDisposable
         FontManager fontManager,
         IDataManager dataManager,
         IGameConfig gameConfig,
-        FileDialogManager fileDialogManager
+        FileDialogManager fileDialogManager,
+        SongLoaderService songLoaderService,
+        SongRequestIssueService songRequestIssueService
     ) : base("Karaoke Config###karaoke_configuration_window")
     {
         Flags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
@@ -108,6 +115,8 @@ public class ConfigWindow : Window, IDisposable
         this.dataManager = dataManager;
         this.gameConfig = gameConfig;
         this.fileDialogManager = fileDialogManager;
+        this.songLoaderService = songLoaderService;
+        this.songRequestIssueService = songRequestIssueService;
         this.colorSheet = dataManager.GetExcelSheet<UIColor>();
         this.tabs = [
             ("Lyric Window##karaoke-lyric-window-settings-tab", drawGeneralTab),
@@ -742,10 +751,81 @@ public class ConfigWindow : Window, IDisposable
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
+        
+        if (songRequestIssueService.CurrentSongRequestUri() is { Uri: { } issueUri, Issues: { } issues })
+        {
+            var hasExistingIssue = issues.Count > 0;
+            var buttonText = $"{(hasExistingIssue ? "View" : "Submit")} Lyrics Request Issue";
+            var tooltipText = hasExistingIssue
+                                  ? $"This song has pending song request issue(s) ({string.Join(", ", issues.Select(i => $"#{i}"))}), see:\n{issueUri}"
+                                  : $"Should the playing song have lyrics? Open a Github issue at {issueUri.GetLeftPart(UriPartial.Path)}";
+            
+            if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.ExternalLinkAlt, buttonText))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = issueUri.AbsoluteUri,
+                    UseShellExecute = true,
+                });
+            }
+            
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip(tooltipText);
+        }
+        
+        if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.FileCirclePlus, "Add Lyrics File"))
+        {
+            fileDialogManager.OpenFileDialog("Karaoke Lyric Files", "Lyric Files (.lrc) {.lrc}", (finished, filePath) =>
+            {
+                if (!finished)
+                    return;
+
+                if (!Path.Exists(filePath))
+                {
+                    pluginLog.Warning($"Warning, file path {filePath} does not exist");
+                    return;
+                }
+
+                var destPath = "???";
+                try
+                {
+                    var userFilesDir = Path.Combine(songLoaderService.LyricsDirectory, "user");
+                    destPath = Path.Combine(userFilesDir, Path.GetFileName(filePath));
+                    pluginLog.Debug($"copying file {filePath} to {destPath}...");
+                    
+                    Directory.CreateDirectory(userFilesDir);
+                    File.Copy(filePath, destPath);
+                }
+                catch (Exception ex)
+                {
+                    pluginLog.Error(ex, $"Error copying {filePath} to {destPath}");
+                    return;
+                }
+                bgmService.ReloadCurrentSongLyrics();
+            });
+        }
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip("Add a new lyric file to the \"user\" lyrics sub-folder and refresh");
+        }
+
+        if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.FolderOpen, "Open Lyrics Folder"))
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = songLoaderService.LyricsDirectory,
+                UseShellExecute = true,
+            });
+        }
+
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip($"Open lyrics directory with system file explorer ({songLoaderService.LyricsDirectory})");
+        }
 
         using (ImRaii.Disabled(bgmService.ReloadingCurrentSongLyrics))
         {
-            if (ImGui.Button("Reload Lyric Files"))
+            if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.SyncAlt, "Reload Lyric Files"))
             {
                 bgmService.ReloadCurrentSongLyrics();
             }
