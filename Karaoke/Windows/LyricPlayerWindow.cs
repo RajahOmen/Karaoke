@@ -34,6 +34,7 @@ public class LyricPlayerWindow : Window, IDisposable
     private const int MinBufferWidth = 40;
     private bool resizeQueued = true;
     private ImRaii.ColorDisposable? borderColor = null;
+    private bool hasTrackedPos = false;
     private Vector2 lastTrackedPos = Vector2.Zero;
     private Vector2 lastSize = Vector2.Zero;
 
@@ -199,8 +200,8 @@ public class LyricPlayerWindow : Window, IDisposable
         using var _ = fontManager.LyricFont.Push();
         foreach (var lyric in song.Lyrics ?? [])
             maxLength = Math.Max(maxLength, ImGui.CalcTextSize(lyric.Text).X + MinBufferWidth);
-        
-        if (configuration.LyricWindowRightJustified)
+
+        if (configuration.LyricWindowRightJustified && hasTrackedPos)
             Position = lastTrackedPos with { X = lastTrackedPos.X - maxLength };
         Size = new Vector2(maxLength / ImGuiHelpers.GlobalScale, 0);
     }
@@ -589,7 +590,13 @@ public class LyricPlayerWindow : Window, IDisposable
     private void adjustResizePosition()
     {
         var newTrackedPos = getTrackedPos();
-        if (!Equals(newTrackedPos, lastTrackedPos))
+
+        if (!hasTrackedPos)
+        {
+            lastTrackedPos = newTrackedPos;
+            hasTrackedPos = true;
+        }
+        else if (!Equals(newTrackedPos, lastTrackedPos))
         {
             var viewport = ImGui.GetMainViewport();
             var screenMiddle = viewport.WorkPos.X + (viewport.WorkSize.X / 2);
@@ -607,7 +614,7 @@ public class LyricPlayerWindow : Window, IDisposable
         lastSize = ImGui.GetWindowSize();
         Position = null;
     }
-    
+
 
     private void drawNoLyricsAvailable()
     {
