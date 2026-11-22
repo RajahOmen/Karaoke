@@ -22,6 +22,7 @@ public class Configuration : IPluginConfiguration
     public bool DisplayLyricInToast { get; set; } = false;
     public bool DisplayLyricInFlyText { get; set; } = false;
     public bool LyricWindowRightJustified { get; set; } = false;
+    public bool LyricWindowAutoJustify { get; set; } = true;
 
     /// <summary>
     /// Defaults to <see cref="Dalamud.Bindings.ImGui.ImGuiCol.Text"/> value for active Dalamud style.

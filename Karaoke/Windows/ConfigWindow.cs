@@ -132,10 +132,6 @@ public class ConfigWindow : Window, IDisposable
 
     public void Dispose() { }
 
-    public override void PreDraw()
-    {
-    }
-
     private void drawOpenConditionCombo()
     {
         var openOn = configuration.OpenWindowOn;
@@ -412,15 +408,17 @@ public class ConfigWindow : Window, IDisposable
         var fontName = LyricFontNames.GetValueOrDefault(fontType, "???");
 
         using (var combo = ImRaii.Combo("Lyric Font", fontName))
-        if (combo)
         {
-            foreach (var (font, name) in LyricFontNames)
+            if (combo)
             {
-                if (ImGui.Selectable(name, fontType == font))
+                foreach (var (font, name) in LyricFontNames)
                 {
-                    configuration.LyricFont = font;
-                    configuration.Save();
-                    _ = fontManager.BuildFonts();
+                    if (ImGui.Selectable(name, fontType == font))
+                    {
+                        configuration.LyricFont = font;
+                        configuration.Save();
+                        _ = fontManager.BuildFonts();
+                    }
                 }
             }
         }
@@ -538,6 +536,69 @@ public class ConfigWindow : Window, IDisposable
         }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Whether to have a title bar on the lyric player window");
+
+        const string leftJustifyLabel = "Grows Right";
+        const string rightJustifyLabel = "Grows Left";
+        var autoJustifyLabel =
+            $"Auto (Currently: {(configuration.LyricWindowRightJustified ? rightJustifyLabel : leftJustifyLabel)})";
+        string previewJustifyLabel;
+        if (configuration.LyricWindowAutoJustify)
+            previewJustifyLabel = autoJustifyLabel;
+        else if (configuration.LyricWindowRightJustified)
+            previewJustifyLabel = rightJustifyLabel;
+        else
+            previewJustifyLabel = leftJustifyLabel;
+
+        using (var combo = ImRaii.Combo("Grow Direction", previewJustifyLabel))
+        {
+            if (combo)
+            {
+                if (ImGui.Selectable(
+                    $"{autoJustifyLabel}##justify_auto_option", 
+                    configuration.LyricWindowAutoJustify)
+                )
+                {
+                    configuration.LyricWindowAutoJustify = true;
+                    lyricPlayerWindow.JustifyCalculationQueued = true;
+                    configuration.Save();
+                }
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip(
+                        "Determine the grow direction based on which side of the screen the window is put on"
+                    );
+
+                var isLeft = configuration is { LyricWindowAutoJustify: false, LyricWindowRightJustified: false };
+                if (ImGui.Selectable($"{leftJustifyLabel}##justify_left_option", isLeft))
+                {
+                    configuration.LyricWindowAutoJustify = false;
+                    configuration.LyricWindowRightJustified = false;
+                    configuration.Save();
+                }
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip(
+                        "Grows/shrinks on the right side of the window on size change (left side is fixed)"
+                    );
+
+                var isRight = configuration is { LyricWindowAutoJustify: false, LyricWindowRightJustified: true };
+                if (ImGui.Selectable($"{rightJustifyLabel}##justify_right_option", isRight))
+                {
+                    configuration.LyricWindowAutoJustify = false;
+                    configuration.LyricWindowRightJustified = true;
+                    configuration.Save();
+                }
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip(
+                        "Grows/shrinks on the left side of the window on size change (right side is fixed)"
+                    );
+            }
+        }
+
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip(
+                "Which direction should the window grow/shrink in when the window size changes to fit lyrics"
+            );
+        }
 
         ImGui.Spacing();
         ImGui.Separator();

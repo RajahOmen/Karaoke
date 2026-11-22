@@ -1,8 +1,6 @@
 using Dalamud.Bindings.ImGui;
-using Dalamud.Game.ClientState.JobGauge.Enums;
 using Dalamud.Interface;
 using Dalamud.Interface.Components;
-using Dalamud.Interface.Style;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
@@ -27,12 +25,12 @@ public class LyricPlayerWindow : Window, IDisposable
     private readonly IDalamudPluginInterface pluginInterface;
     private readonly FontManager fontManager;
     private readonly SongRequestIssueService songRequestIssueService;
-    private readonly IClientState clientState;
     public bool OpenedManually = false;
 
     private const int DefaultWidth = 300;
     private const int MinBufferWidth = 40;
     private bool resizeQueued = true;
+    public bool JustifyCalculationQueued = false;
     private ImRaii.ColorDisposable? borderColor = null;
     private Vector2? lastTrackedPos = null;
     private Vector2 lastSize = Vector2.Zero;
@@ -73,7 +71,6 @@ public class LyricPlayerWindow : Window, IDisposable
         this.pluginInterface = pluginInterface;
         this.fontManager = fontManager;
         this.songRequestIssueService = songRequestIssueService;
-        this.clientState = clientState;
         this.bgmService.OnSongChange += handleOnSongChange;
         this.songLoaderService.OnLyricLoad += handleOnLyricLoad;
         this.fontManager.OnFontChange += handleOnFontChange;
@@ -591,18 +588,21 @@ public class LyricPlayerWindow : Window, IDisposable
         var newTrackedPos = getTrackedPos();
 
         lastTrackedPos ??= newTrackedPos;
-        if (!Equals(newTrackedPos, lastTrackedPos))
+        if (JustifyCalculationQueued || !Equals(newTrackedPos, lastTrackedPos))
         {
-            var viewport = ImGui.GetWindowViewport();
-            var screenMiddle = viewport.GetCenter().X;
-            var windowMiddle = ImGui.GetWindowPos().X + (ImGui.GetWindowSize().X / 2);
-
-            var newGrowsLeft = windowMiddle > screenMiddle;
-            if (newGrowsLeft != configuration.LyricWindowRightJustified)
+            JustifyCalculationQueued = false;
+            if (configuration.LyricWindowAutoJustify)
             {
-                pluginLog.Debug($"Switching window behavior to {(newGrowsLeft ? "right" : "left")} justified");
-                configuration.LyricWindowRightJustified = newGrowsLeft;
-                configuration.Save();
+                var screenMiddle = ImGui.GetWindowViewport().GetCenter().X;
+                var windowMiddle = ImGui.GetWindowPos().X + (ImGui.GetWindowSize().X / 2);
+
+                var newGrowsLeft = windowMiddle > screenMiddle;
+                if (newGrowsLeft != configuration.LyricWindowRightJustified)
+                {
+                    pluginLog.Debug($"Switching window behavior to {(newGrowsLeft ? "right" : "left")} justified");
+                    configuration.LyricWindowRightJustified = newGrowsLeft;
+                    configuration.Save();
+                }
             }
             lastTrackedPos = newTrackedPos;
         }
