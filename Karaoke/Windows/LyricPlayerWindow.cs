@@ -593,8 +593,8 @@ public class LyricPlayerWindow : Window, IDisposable
         lastTrackedPos ??= newTrackedPos;
         if (!Equals(newTrackedPos, lastTrackedPos))
         {
-            var viewport = ImGui.GetMainViewport();
-            var screenMiddle = viewport.WorkPos.X + (viewport.WorkSize.X / 2);
+            var viewport = ImGui.GetWindowViewport();
+            var screenMiddle = viewport.GetCenter().X;
             var windowMiddle = ImGui.GetWindowPos().X + (ImGui.GetWindowSize().X / 2);
 
             var newGrowsLeft = windowMiddle > screenMiddle;
