@@ -31,6 +31,7 @@ public class LyricPlayerWindow : Window, IDisposable
     private const int MinBufferWidth = 40;
     private bool resizeQueued = true;
     public bool JustifyCalculationQueued = false;
+    public bool flexRight = false;
     private ImRaii.ColorDisposable? borderColor = null;
     private Vector2? lastTrackedPos = null;
     private Vector2 lastSize = Vector2.Zero;
@@ -79,7 +80,7 @@ public class LyricPlayerWindow : Window, IDisposable
     private Vector2 getTrackedPos()
     {
         var pos = ImGui.GetWindowPos();
-        if (configuration.LyricWindowRightJustified)
+        if (configuration.LyricWindowJustifyDirection == JustifyDirection.Right || flexRight)
             pos.X += ImGui.GetWindowSize().X;
 
         return pos;
@@ -161,7 +162,7 @@ public class LyricPlayerWindow : Window, IDisposable
             pluginLog.Debug($"handleOnSongChange: {prevState} => {IsOpen}. [{OpenedManually}][{bgmService.CurrentSong}]");
         }
     }
-    
+
     public override void PreDraw()
     {
 
@@ -196,9 +197,16 @@ public class LyricPlayerWindow : Window, IDisposable
         using var _ = fontManager.LyricFont.Push();
         foreach (var lyric in song.Lyrics ?? [])
             maxLength = Math.Max(maxLength, ImGui.CalcTextSize(lyric.Text).X + MinBufferWidth);
-
-        if (configuration.LyricWindowRightJustified && lastTrackedPos.HasValue)
-            Position = lastTrackedPos.Value with { X = lastTrackedPos.Value.X - maxLength };
+        if (lastTrackedPos.HasValue) {
+            var difference = lastSize[0] - maxLength;
+            if (configuration.LyricWindowJustifyDirection == JustifyDirection.Center)
+            {
+                Position = lastTrackedPos.Value with { X = lastTrackedPos.Value.X + (difference / 2) };
+            }
+            else if (configuration.LyricWindowJustifyDirection == JustifyDirection.Right || flexRight) {
+                Position = lastTrackedPos.Value with { X = lastTrackedPos.Value.X - maxLength };
+            } 
+        }
         Size = new Vector2(maxLength / ImGuiHelpers.GlobalScale, 0);
     }
 
@@ -591,18 +599,11 @@ public class LyricPlayerWindow : Window, IDisposable
         if (JustifyCalculationQueued || !Equals(newTrackedPos, lastTrackedPos))
         {
             JustifyCalculationQueued = false;
-            if (configuration.LyricWindowAutoJustify)
+            if (configuration.LyricWindowJustifyDirection == JustifyDirection.Flex)
             {
                 var screenMiddle = ImGui.GetWindowViewport().GetCenter().X;
                 var windowMiddle = ImGui.GetWindowPos().X + (ImGui.GetWindowSize().X / 2);
-
-                var newGrowsLeft = windowMiddle > screenMiddle;
-                if (newGrowsLeft != configuration.LyricWindowRightJustified)
-                {
-                    pluginLog.Debug($"Switching window behavior to {(newGrowsLeft ? "right" : "left")} justified");
-                    configuration.LyricWindowRightJustified = newGrowsLeft;
-                    configuration.Save();
-                }
+                flexRight = windowMiddle > screenMiddle;
             }
             lastTrackedPos = newTrackedPos;
         }

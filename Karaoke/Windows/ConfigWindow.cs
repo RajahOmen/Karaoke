@@ -539,26 +539,33 @@ public class ConfigWindow : Window, IDisposable
 
         const string leftJustifyLabel = "Grows Right";
         const string rightJustifyLabel = "Grows Left";
-        var autoJustifyLabel =
-            $"Auto (Currently: {(configuration.LyricWindowRightJustified ? rightJustifyLabel : leftJustifyLabel)})";
-        string previewJustifyLabel;
-        if (configuration.LyricWindowAutoJustify)
-            previewJustifyLabel = autoJustifyLabel;
-        else if (configuration.LyricWindowRightJustified)
-            previewJustifyLabel = rightJustifyLabel;
-        else
-            previewJustifyLabel = leftJustifyLabel;
+        const string flexJustifyLabel = "Auto Right/Left (default)";
+        const string centerJustifyLabel = "Stay Centered";
+        string previewJustifyLabel = flexJustifyLabel;
+        switch (configuration.LyricWindowJustifyDirection) {
+            case JustifyDirection.Left:
+                previewJustifyLabel = leftJustifyLabel;
+                break;
+            case JustifyDirection.Right:
+                previewJustifyLabel = rightJustifyLabel;
+                break;
+            case JustifyDirection.Center:
+                previewJustifyLabel = centerJustifyLabel;
+                break;
+            default:
+                previewJustifyLabel = flexJustifyLabel;
+                break;
+        }
 
         using (var combo = ImRaii.Combo("Grow Direction", previewJustifyLabel))
         {
             if (combo)
             {
+                var isFlex = configuration is { LyricWindowJustifyDirection: JustifyDirection.Flex };
                 if (ImGui.Selectable(
-                    $"{autoJustifyLabel}##justify_auto_option", 
-                    configuration.LyricWindowAutoJustify)
-                )
+                    $"{flexJustifyLabel}##justify_flex_option", isFlex))
                 {
-                    configuration.LyricWindowAutoJustify = true;
+                    configuration.LyricWindowJustifyDirection = JustifyDirection.Flex;
                     lyricPlayerWindow.JustifyCalculationQueued = true;
                     configuration.Save();
                 }
@@ -567,11 +574,10 @@ public class ConfigWindow : Window, IDisposable
                         "Determine the grow direction based on which side of the screen the window is put on"
                     );
 
-                var isLeft = configuration is { LyricWindowAutoJustify: false, LyricWindowRightJustified: false };
+                var isLeft = configuration is { LyricWindowJustifyDirection: JustifyDirection.Left };
                 if (ImGui.Selectable($"{leftJustifyLabel}##justify_left_option", isLeft))
                 {
-                    configuration.LyricWindowAutoJustify = false;
-                    configuration.LyricWindowRightJustified = false;
+                    configuration.LyricWindowJustifyDirection = JustifyDirection.Left;
                     configuration.Save();
                 }
                 if (ImGui.IsItemHovered())
@@ -579,16 +585,25 @@ public class ConfigWindow : Window, IDisposable
                         "Grows/shrinks on the right side of the window on size change (left side is fixed)"
                     );
 
-                var isRight = configuration is { LyricWindowAutoJustify: false, LyricWindowRightJustified: true };
+                var isRight = configuration is { LyricWindowJustifyDirection: JustifyDirection.Right };
                 if (ImGui.Selectable($"{rightJustifyLabel}##justify_right_option", isRight))
                 {
-                    configuration.LyricWindowAutoJustify = false;
-                    configuration.LyricWindowRightJustified = true;
+                    configuration.LyricWindowJustifyDirection = JustifyDirection.Right;
                     configuration.Save();
                 }
                 if (ImGui.IsItemHovered())
                     ImGui.SetTooltip(
                         "Grows/shrinks on the left side of the window on size change (right side is fixed)"
+                    );
+                var isCenter = configuration is { LyricWindowJustifyDirection: JustifyDirection.Center };
+                if (ImGui.Selectable($"{centerJustifyLabel}##justify_center_option", isCenter))
+                {
+                    configuration.LyricWindowJustifyDirection = JustifyDirection.Center;
+                    configuration.Save();
+                }
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip(
+                        "Grows/shrinks on both sides to stay centered based on the window's current position"
                     );
             }
         }

@@ -21,8 +21,8 @@ public class Configuration : IPluginConfiguration
     public float DtrBarPreviewLength { get; set; } = 0.75f;
     public bool DisplayLyricInToast { get; set; } = false;
     public bool DisplayLyricInFlyText { get; set; } = false;
-    public bool LyricWindowRightJustified { get; set; } = false;
-    public bool LyricWindowAutoJustify { get; set; } = true;
+
+    public JustifyDirection LyricWindowJustifyDirection { get; set; } = JustifyDirection.Flex;
 
     /// <summary>
     /// Defaults to <see cref="Dalamud.Bindings.ImGui.ImGuiCol.Text"/> value for active Dalamud style.
@@ -124,4 +124,12 @@ public enum LyricColor
     ActiveLine,
     InactiveLine,
     Highlight
+}
+
+public enum JustifyDirection
+{
+    Center,
+    Right,
+    Left,
+    Flex
 }
